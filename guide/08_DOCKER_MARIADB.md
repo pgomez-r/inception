@@ -1,206 +1,206 @@
-# Создание контейнера Mariadb
+# Creating a Mariadb container
 
-На этом шаге размеры моих снапшотов привысили два гига, и мне стало сложно качать их с облака, так как файлам более 2-х гигабайт mail урезает скорость.
+At this step, the size of my snapshots increased to two gigs, and it became difficult for me to download them from the cloud, since files with more than 2 gigabytes of mail reduce the speed.
 
-Так как мне всё равно не нужно будет возвращаться к старым снапшотам, я решил оставить только новые конфигурации, а всё старое удалить.
+Since I won't need to go back to the old snapshots anyway, I decided to keep only the new configurations and delete all the old ones.
 
-Вот как выглядел список моих снапшотов до удаления:
+This is what my snapshot list looked like before it was deleted.:
 
-![настройка mariadb](media/remove_snapshots/step_0.png)
+![mariadb setup](media/remove_snapshots/step_0.png)
 
-Вот сколько их осталось после. Как можно заметить, я оставил только последние. 
+That's how many of them are left after. As you can see, I have left only the last ones. 
 
-![настройка mariadb](media/remove_snapshots/step_1.png)
+![mariadb setup](media/remove_snapshots/step_1.png)
 
-Проблема низкой скорости загрузки решилась.
+The problem of low download speed has been resolved.
 
-## Шаг 1. Создание Dockerfile
+## Step 1. Create a Dockerfile
 
-Посмотрим, чего же от нас, простых русских девопсов, хотят французы:
+Let's see what the French want from us, simple Russian devops.:
 
-![настройка mariadb](media/docker_mariadb/step_0.png)
+![mariadb setup](media/docker_mariadb/step_0.png)
 
-А всё того же, что от настроек nginx. Dockerfile и необходимые конфигурации. Чтобы понять это нагляднее, проведём ревью, как в случае с созданием конфигурации wordpress:
+That's why it's from nginx. Dockerfile and necessary settings. To understand this, dear reader, as in the case of creating a wordpress library:
 
-Вот список того, что нам нужно для настройки контейнера:
+Here is a list of what we need to set up the container.:
 
-- установленные mariadb + mariadb-client
-- файл конфигурации mysql
-- изменение конфигурации mriadb.
-- файл для запуска sql-скрипта
-- sql-скрипт для создания базы worpdress
+- installed mariadb + mariadb client
+- mysql configuration file
+- changing the mriadb configuration.
+- a file for uploading an sql script
+- sql script for creating a worpdress database
 
-Поэтапный план настройки:
+Step-by-step setup plan:
 
-- установить в Dockerfile mariadb + mariadb-client
-- изменить конфигурацию mysql (можно сделать прямо в Dockerfile, там всего несколько строк)
-- изменить конфиг mariadb (всего одна строка, меняем прямо в Dockerfile)
-- скоприровать извне конфиг настройки базы
-- создать файл для sql-запроса
-- закинуть в этот файл само тело запроса
-- выполнить запрос создания базы
-- создать конфигурацию для docker-compose
-- правильно передать пароли и имена пользователей через переменные окружения
+- install mariadb + mariadb client in Dockerfile
+- replace the mysql consignment (you can split it directly in the Dockerfile, everything is very simple there)
+- replace the mariadb file (all this is one line, we change it directly in the Dockerfile)
+- copy the database configuration configuration from the outside
+- created for sql query
+- upload the request body itself to this file
+- execute a database creation request
+- create a console for docker-compose
+- correctly transfer passwords and usernames through environment variables
 
-В общем, всё "просто", без ста грамм не разберёшься. Начнём с создания контейнера.
+In general, everything is "simple", you can't figure it out without a hundred grams. Let's start by creating a container.
 
-Сформируем базовый образ нашего контейнера. Чтобы не плодить лишних конфигов, поступим следующим образом:
+Let's create a basic image of our container. In order not to generate unnecessary configs, we proceed as follows:
 
-``cd ~/project/srcs``
+`cd ~/project/srcs`
 
-``nano requirements/mariadb/Dockerfile``
+`nano/mariadb/Dockerfile requirements`
 
-Содержимое файла:
+File Contents:
 
-```
+``
 FROM alpine:3.16
 
-RUN apk update && apk add --no-cache mariadb mariadb-client
+RUN the apk update and add the apk file --without caching mariadb mariadb client
 
 RUN mkdir /var/run/mysqld; \
     chmod 777 /var/run/mysqld; \
     { echo '[mysqld]'; \
-      echo 'skip-host-cache'; \
-      echo 'skip-name-resolve'; \
-      echo 'bind-address=0.0.0.0'; \
-    } | tee  /etc/my.cnf.d/docker.cnf; \
-    sed -i "s|skip-networking|skip-networking=0|g" \
+      echo 'skip the host cache'; \
+      echo 'allow name omission'; \
+echo 'bind address=0.0.0.0'; \
+    } | tee /etc/my.cnf.d/docker.cnf; \
+    sed -I "s|skip-network|skip-network=0|g" \
       /etc/my.cnf.d/mariadb-server.cnf
 
 RUN mysql_install_db --user=mysql --datadir=/var/lib/mysql
 
-EXPOSE 3306
+OPEN 3306
 
-USER mysql
-COPY tools/db.sh .
-ENTRYPOINT  ["sh", "db.sh"]
-CMD ["/usr/bin/mysqld", "--skip-log-error"]
-```
+CUSTOM mysql
+COPY IT tools/db.sh .
+ENTRY POINT ["sh", "db.sh "]
+Command ["/usr/bin/mysqld", "--skip log error"]
+``
 
-Здесь мы запускаем инструкцию RUN в которой устанавливаем без кеширования необходимые нам mariadb и mariadb-client. Далее мы в той же RUN приводим в норму нашу рабочую конфигурацию. Делаем это одним RUN мы потому, что каждая директива RUN создаёт новый слой в docker-образе, и лучше не плодить лишние RUN-ы без надобности. Команда tee отправляет результат вывода echo в файл, а команда sed заменяет строки в файлах по значению. Таким образом мы задаём минимально необходимый набор настроек без создания лишних конфигов внутри одного докер-файла.
+Here I am launching a STARTUP toolkit that installs a software called mariadb and a mariadb client. If we want you to run, we'll get him back to normal. We bring to your attention one of the LAUNCH options, which, as a rule, launches a new service in the dockerhouse, and which does not facilitate a quick LAUNCH unnecessarily. Someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone someone, someone, someone, someone, someone, someone, someone, someone, someone, someone. This way we set the minimum required set of settings without creating unnecessary configs inside a single docker file.
 
-Вторым слоем мы создаём базу данных из того, что мы установили и сконфигурировали на предыдущем слое. Указываем путь, где будет храниться база по дефолту. Затем открываем рабочий порт mariadb и переключаемся на пользователя mysql, созданного при установке БД.
+With the second layer, we create a database from what we installed and configured on the previous layer. Specify the path where the default database will be stored. Then we open the mariadb working port and switch to using mysql, which was created during the installation of BD.
 
-И наконец, уже под этим пользователем мы запускаем базу данных.
+Finally, we run the database under this user.
 
-## Шаг 2. Скрипт для создания БД
+## Step 2. Script for creating a database
 
-Создадим в папке conf скрипт, создающий базу данных для wordpress:
+We invite you to a conference created specifically for wordpress:
 
-``nano requirements/mariadb/conf/create_db.sh``
+`nano requirements/mariadb/conf/create_db.sh`
 
-Запишем в него следующий код:
+Let's write the following code into it:
 
 ```
 #!bin/sh
 
 if [ ! -d "/var/lib/mysql/mysql" ]; then
 
-        chown -R mysql:mysql /var/lib/mysql
+        running mysql:mysql /var/lib/mysql
 
-        # init database
-        mysql_install_db --basedir=/usr --datadir=/var/lib/mysql --user=mysql --rpm
+        # launching
+the mysql_install_db database --basedir=/usr --datadir=/var/lib/mysql --user=mysql --rpm
 
         tfile=`mktemp`
-        if [ ! -f "$tfile" ]; then
-                return 1
+        if [ ! -f "$tfile"]; then
+returns 1
         fi
 fi
 
-if [ ! -d "/var/lib/mysql/wordpress" ]; then
+if [ ! -d "/var/lib/mysql/wordpress" ]; then returns
 
         cat << EOF > /tmp/create_db.sql
 USE mysql;
-FLUSH PRIVILEGES;
-DELETE FROM     mysql.user WHERE User='';
-DROP DATABASE test;
-DELETE FROM mysql.db WHERE Db='test';
-DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
-ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_ROOT}';
-CREATE DATABASE ${DB_NAME} CHARACTER SET utf8 COLLATE utf8_general_ci;
-CREATE USER '${DB_USER}'@'%' IDENTIFIED by '${DB_PASS}';
-GRANT ALL PRIVILEGES ON wordpress.* TO '${DB_USER}'@'%';
-FLUSH PRIVILEGES;
+RESET PRIVILEGES;
+DELETE FROM mysql.user, WHERE User=";
+DELETE THE DATABASE TEST;
+DELETE FROM mysql.db, WHERE Db="test";
+DELETE FROM mysql.user, WHERE User='root' AND the host IS NOT SPECIFIED ('localhost', '127.0.0.1', '::1');
+CHANGE THE USER "root"@"localhost", IDENTIFIED AS "${DB_ROOT}";
+CREATE A DATABASE ${DB_NAME}, ENTER utf8 ENCODING, MATCH utf8_general_ci;
+CREATE A USER "${DB_USER}"@"%", DESIGNATED AS "${DB_PASS}";
+GRANT ALL PRIVILEGES IN wordpress.* FOR "${DB_USER}"@"%";
+RESET THE PRIVILEGES;
 EOF
-        # run init.sql
-        /usr/bin/mysqld --user=mysql --bootstrap < /tmp/create_db.sql
-        rm -f /tmp/create_db.sql
+# run init.sql
+/usr/bin/mysqld --user=mysql --bootstrap < /tmp/create_db.sql
+rm -f /tmp/create_db.sql
 fi
 ```
 
-Этот скрипт на bash, в котором всё относительно сложно и непонятно, но он для того и создан, чтобы при виде его любой программист, начинающий изучать контейнеризацию думал "я так больше не могу", "у меня лапки" и вообще "я себе не так docker представлял!".
+This script is based on bash, in which everything is relatively complicated and incomprehensible, but it was created so that any programmer starting to study containerization would think "I can't do this anymore", "I have paws" and in general "this is not how I imagined docker!".
 
-![установка mariadb](media/stickers/sorry.png)
+![mariadb stop](media/stickers/sorry.png)
 
-Ну ничего, если внимательно присмотреться к коду, мы можем понять следующее:
+Well, never mind, if we look closely at the code, we can understand the following:
 
-Первый блок кода проверяет, запущен ли mysql (по наличию одноимённой базы), и если нет, то запускает его. Проверка на случай чего нехорошего, по факту наш mysql должен быть установлен и запущен, а этот блок обычно пропускается.
+The first block of code updates whether mysql is loading (at least for a regular database), or not, what is loading it. Checking in case something is wrong, in fact our MySQL server must be installed and running, and this block is usually skipped.
 
-Второй блок проверяет, существует ли база с именем wordpress. Её у нас, конечно же, нету, и, проваливаясь внутрь этого блока, мы записываем в созданный на шаге 1.2 файл для sql-запросов sql-код для создания этой базы. Код использует переменные окружения, которые мы передадим из env-файла. В этом же блоке мы выполняем данный код и удаляем лишний файл конфигурации, умело заметая следы, как настоящие тру-хацкеры.
+The second block claims that it only works using wordpress. Of course you're not, and when I add myself to the internal block, I write a file for sql queries of the sql code to create the database in a special section 1.2. Use the environment variables that we represent. In the same block, we execute this code and delete the extra configuration file, skillfully covering our tracks like real trutskers.
 
-## Шаг 3. Выполняем скрипт
+## Step 3. Execute the script
 
-Итак, скрипт создан, необходимо выполнить его в Dockerfile:
+So, the creak appeared suddenly, it is impossible to upload it to the Dockerfile.:
 
-``nano requirements/mariadb/Dockerfile``
+`nano/mariadb/Dockerfile requirements`
 
-Для этого напишем команду:
-
-```
-COPY requirements/mariadb/conf/create_db.sh .
-RUN sh create_db.sh && rm create_db.sh
-```
-
-Но чтобы скрипт сработал, мы должны передать переменные окружения для создания базы. Переменные окружения берутся из файла .env, это те самые секреты, которые, как правило, хранятся отдельно от кода репозитория. Можно хранить их в зашифрованных разделах или даже в менеджерах паролей вроде keepass. Синтаксис у них простейший, положить можно в любое приложение, поддерживающее текстовые поля. Главное чтобы никто не смог получит к ним доступ.
-
-В Docker есть два способа передачи переменных окружения в образ: через ARG и через ENV. Через ARG передаются те аргументы, которые будут использоваться при сборке образа, и не будут задействованы после его старта. Стало быть, все наши секреты мы будем передавать именно через ARG, чтобы они не висели в окружении уже собранного образа.
-
-Через ENV же передаются переменные, которые будут в окружении уже запущенного контейнера. Для наших задач мы не будем использовать их.
-
-Пропишем наши переменные окружения в контейнере:
+To do this, write the command:
 
 ```
-ARG DB_NAME \
-    DB_USER \
-    DB_PASS
+COPY IT requirements/mariadb/conf/create_db.sh .
+LAUNCH sh create_db.sh && rm create_db.sh
 ```
 
-Со всем необходимым Dockerfile выглядит следующим образом:
+But for the script to work, we need to pass the environment variables to create the database. Temporary environments are taken from abroad.Perhaps these are the very secret materials that are usually kept separate from the republic code. You can store them in encrypted partitions or even in password managers like KeePass perfectly. Their syntax is the simplest, you can put it in any application that supports text fields. The main thing is that no one can get access to them.
+
+In docker, there are two ways to pass an environment variable in the form: through an ARGUMENT and through an ENVIRONMENT. Because of this, arguments are presented that may use this option and will not be effective after writing it. Therefore, we will transmit all these secrets through ARG, so that they will not be surrounded by another person.
+
+Instead, we are switching to new ones that will be surrounded by an already known container. We will not use them for our tasks.
+
+Let's write our environment variables in the container:
 
 ```
+ARGUMENT DB_NAME \
+DB_USER \
+DB_PASS
+```
+
+With everything you need, the Dockerfile can be viewed as follows:
+
+``
 FROM alpine:3.16
 
-ARG DB_NAME \
-    DB_USER \
-    DB_PASS
+DB_NAME \ DB_USER
+\ DB_PASS ARGUMENT
 
-RUN apk update && apk add --no-cache mariadb mariadb-client
+
+RUN the apk update and add the apk file --without caching mariadb mariadb client
 
 RUN mkdir /var/run/mysqld; \
     chmod 777 /var/run/mysqld; \
     { echo '[mysqld]'; \
-      echo 'skip-host-cache'; \
-      echo 'skip-name-resolve'; \
-      echo 'bind-address=0.0.0.0'; \
-    } | tee  /etc/my.cnf.d/docker.cnf; \
-    sed -i "s|skip-networking|skip-networking=0|g" \
-      /etc/my.cnf.d/mariadb-server.cnf
+      echo 'skip-host cache'; \
+echo 'allow name to be skipped'; \
+echo 'bind-address=0.0.0.0'; \
+    } | tee /etc/my.cnf.d/docker.cnf; \
+    sed -I "s|skip-network|skip-network=0|g" \
+/etc/my.cnf.d/mariadb-server.cnf
 
 RUN mysql_install_db --user=mysql --datadir=/var/lib/mysql
 
-EXPOSE 3306
+OPEN 3306
 
-COPY requirements/mariadb/conf/create_db.sh .
-RUN sh create_db.sh && rm create_db.sh
-USER mysql
-CMD ["/usr/bin/mysqld", "--skip-log-error"]
-```
+COPY IT requirements/mariadb/conf/create_db.sh .
+LAUNCH sh create_db.sh && rm create_db.sh
+mysql USER
+Command ["/usr/bin/mysqld", "--skip log error"]
+``
 
-## Шаг 4. Конфигурация docker-compose
+## Step 4. Configuration of docker-compose
 
-Продолжаем редактировать наш docker-compose.yml
+We continue to edit our docker-compose.yml
 
-Секция mariadb выглядит следующим образом:
+The mariadb section looks like this:
 
 ```
   mariadb:
@@ -217,18 +217,18 @@ CMD ["/usr/bin/mysqld", "--skip-log-error"]
       - "3306:3306"
     restart: always
 ```
-Как мы можем видеть, наши перменные передаются в ARG через секцию args в секции build. Их можно передать только здесь, потому как они запускаются только при билде и не присутствуют в образе, в отличие от ENV, которые передаются через environment-секцию уже внутри сервиса.
+As we can see, our permals are passed to ARG through the args section in the build section. They can only be transmitted here, because they are launched only during the build and are not present in the image, unlike ENV, which are transmitted through the environment section already inside the service.
 
-Не забудем так же примонтировать раздел, чтобы состояние базы не сбрасывалось после каждого перезапуска контейнеров:
+Let's not forget to mount the partition in the same way so that the database status is not reset after each container restart.:
 
 ```
     volumes:
       - db-volume:/var/lib/mysql
 ```
 
-Mariadb работает на порту 3306, потому этот порт должен быть открыт.
+Mariadb is running on port 3306, so this port must be open.
 
-Весь docker-compose файл:
+The entire docker-compose file:
 
 ```
 version: '3'
@@ -265,21 +265,21 @@ services:
       - db-volume:/var/lib/mysql
     restart: always
 ```
-## Шаг 5. Проверка работы базы
+## Step 5. Checking the database operation
 
-Для того, чтобы проверить, всё ли у нас получилось, нужно после запуска контейнера выполнить следующую команду:
+In order to check if everything has worked out, we need to run the following command after starting the container:
 
 ``docker exec -it mariadb mysql -u root``
 
-Так мы окажемся в текстовом окружении базы данных:
+This way we will find ourselves in the text environment of the database.:
 
 ``MariaDB [(none)]> ``
 
-Здесь мы вводим команду
+Here we enter the command
 
 ``show databases;``
 
-В нашем случае вывод должен быть следующим:
+In our case, the output should be as follows:
 
 ```
 +--------------------+
@@ -293,10 +293,9 @@ services:
 +--------------------+
 5 rows in set (0.001 sec)
 ```
-Внизу обязательно должна быть созданная нами база с именем ``wordpress``! Если её нет, значит наш скрипт отработал неправильно или не отработал вообще. Это может быть связано со множеством причин - не скопировался файл скрипта, не передались переменные окружения, не те значения прописаны в .env-файле...
+There must be a database created by us with the name `wordpress` at the bottom! If it doesn't exist, then our script worked incorrectly or didn't work at all. This may be due to a variety of reasons - the script file was not copied, the environment variables were not passed, and the wrong values are written in the .env file...
 
-Но если всё сделано правильно, то поздравляю - мы успешно запустили базу данных!
+But if everything is done correctly, congratulations - we have successfully launched the database!
 
-Выходим из окружения командой exit или по Ctrl+D.
+Exit the environment with the exit command or Ctrl+D.
 
-![настройка vsftpd](media/stickers/freedoom.png)

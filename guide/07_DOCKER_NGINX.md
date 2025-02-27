@@ -29,8 +29,6 @@ MariaDB | Relational database | Mikael Videnius (Finland) | 3306 |
 
 - MariaDB is a lightweight MySQL database analog.
 
-![nginx configuration](media/nginx_deploy/step_0.png)
-
 So, let's start configuring the server with Nginx.
 
 ## Step 1. Introduction to Docker
@@ -81,7 +79,7 @@ Next, we specify which software and how we want to install it inside the contain
 
 The `RUN` instruction creates a new image layer with the result of the called command, similar to how the snapshot system saves changes in a virtual machine. Actually, the image itself consists of this kind of layers of changes.
 
-It is not possible to launch the application directly from `RUN`. In some cases, this can be done through a script, but in general, the `CMD` and `ENTRYPOINT" instructions are used to run. 
+It is not possible to launch the application directly from `RUN`. In some cases, this can be done through a script, but in general, the `CMD` and `ENTRYPOINT` instructions are used to run. 
 `RUN` creates a static layer, changes inside which are written to the image, but do not cause anything. 
 `CMD` and `ENTRYPOINT` run something, but DO NOT WRITE changes to the image. Therefore, it is not necessary to execute scripts with them.
 
@@ -109,22 +107,22 @@ CMD ["nginx", "-g", "daemon off;"]
 ```
 That's actually the whole Dockerfile. Simple, isn't it?
 
-![nginx installation](media/stickers/easy.png)
-
 Save, close.
 
 ## Step 3. Create a configuration file
 
 Naturally, our nginx won't work without a configuration file. Let's write it!
 
-Using `ls` to look at our nginx folder, we will find the conf and tools directories in it. Therefore, our configuration should be in the conf folder if we are normal white people (no racism, just a common phrase).
+Let's create our config folder and config file for nginx at its directory (on project/requirements/nginx):
 
-Let's create our config right from here:
-
-```nano conf/nginx.conf```
+```
+mkdir conf
+vim conf/nginx.conf
+```
 
 Since we have already trained with the test container, we will take a similar configuration, changing it for php so that it allows reading wordpress php files instead of html. We will no longer need port 80, since according to the guide we can only use port 443. But at the first stage, we will comment out the sections responsible for php and temporarily add html support (for verification):
-``
+
+```
 server {
     listen      443 ssl;
     server_name  <your_nickname>.42.fr www.<your_nickname>.42.fr;
@@ -132,3 +130,156 @@ server {
     index index.php index.html;
     ssl_certificate     /etc/nginx/ssl/<your_nickname>.42.fr.crt;
     ssl_certificate_key /etc/nginx/ssl/<your_nickname>.42.fr.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_timeout 10m;
+    keepalive_timeout 70;
+    location / {
+        try_files $uri /index.php?$args /index.html;
+        add_header Last-Modified $date_gmt;
+        add_header Cache-Control 'no-store, no-cache';
+        if_modified_since off;
+        expires off;
+        etag off;
+    }
+#    location ~ \.php$ {
+#        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+#        fastcgi_pass wordpress:9000;
+#        fastcgi_index index.php;
+#        include fastcgi_params;
+#        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+#        fastcgi_param PATH_INFO $fastcgi_path_info;
+#    }
+}
+```
+
+Port 9000 is the port of our php-fpm that connects php and nginx. And wordpress in this case is the name of our wordpress container. But for now, let's try to at least just run something on nginx.
+
+Just copy it to our project and save the file.
+
+And I use the tools folder for the keys by copying them there.:
+
+```cp ~/project/srcs/requirements/tools/* ~/project/srcs/requirements/nginx/tools/```
+
+## Step 4. Creating the docker-compose configuration
+
+Docker-compose is a docker container launch system, which can be said to be a kind of add-on to docker. If we specified in docker files which software to install inside a single container environment, then with docker-compose we can manage the launch of many similar containers at once, launching them with a single command.
+
+To do this we must edit our already created docker-compose.yml file in the root of our project.
+
+
+First, we register the version. The latest version is the third one.
+
+```
+version: '3'
+
+services:
+  nginx:
+```
+
+nginx will be the first in the list of our services. We put two spaces (**not tabs(!)**) and write the service name.
+
+Next, in the next indent level of the nginx service (again, spaces indentation) we specify the `build:` which will have several elements or propierties within (within one more indent level). For now add `context: .` (but do not worry about that for now) and let the docker-compose file know where the Dockerfile for nginx is located `dockerfile: requirements/...` 
+
+```
+version: '3'
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: requirements/nginx/Dockerfile
+```
+
+We set a name for our container, as well as forward the required port (in this task we can only use ssl).
+
+We will also describe the dependency, while commenting it out. We need nginx to start after wordpress, picking up its build. But nginx builds faster, and in order to avoid collisions, we need it to wait for the wordpress container to be built and run only after it. For now, we'll comment on this for tests.
+
+```
+version: '3'
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: requirements/nginx/Dockerfile
+    container_name: nginx
+#    depends_on:
+#      - wordpress
+    ports:
+      - "443:443"
+```
+
+We add sections so that the container sees our config and our keys, and we also make sure to mount our /var/www - the same folder from the old configuration that we will need for the nginx trial run. Later, we will delete it and take files from the wordpress directory.
+
+```
+version: '3'
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: requirements/nginx/Dockerfile
+    container_name: nginx
+#    depends_on:
+#      - wordpress
+    ports:
+      - "443:443"
+    volumes:
+      - ./requirements/nginx/conf/:/etc/nginx/http.d/
+      - ./requirements/nginx/tools:/etc/nginx/ssl/
+      - /home/${USER}/simple_docker_nginx_html/public/html:/var/www/
+```
+
+Next, we specify the type of restart. In this case I am using "on failure":
+
+```
+    restart: on failure
+```
+
+And thus we have the following configuration:
+
+```
+version: '3'
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: requirements/nginx/Dockerfile
+    container_name: nginx
+#    depends_on:
+#      - wordpress
+    ports:
+      - "443:443"
+    volumes:
+      - ./requirements/nginx/conf/:/etc/nginx/http.d/
+      - ./requirements/nginx/tools:/etc/nginx/ssl/
+      - /home/${USER}/simple_docker_nginx_html/public/html:/var/www/
+    restart: on failure
+```
+
+In case you did not before, don't forget to turn off the test configuration.:
+
+```cd ~/simple_docker_nginx_html/```
+
+```docker-compose down```
+
+And we launch our new configuration:
+
+```cd ~/project/srcs/```
+
+```docker-compose up -d```
+
+Since we are using port 443, and it only supports https protocol, we will refer to the https address.:
+
+``https://127.0.0.1 `` in the browser
+
+``https://<your_nickname>.42.fr`` in GUI
+
+And now, if we access the localhost from the browser, we get a working configuration.:
+
+![nginx worker](media/install_certificate/step_10.png)
+
+By easily replacing several docker-compose values and uncomenting the configuration file, we will get a working nginx that supports TLS and works with wordpress. But that is going to happen next.
+
+In the meantime, we take snapshots, save ourselves in the cloud, pour a pleasant liquid for the body and enjoy life.
