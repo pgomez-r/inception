@@ -2,185 +2,165 @@
 
 ## Step 1. Create the Dockerfile for MariaDB
 
+Let's set our MariaDB service. This is a intial folder and files structure:
+
 ![mariadb setup](media/docker_mariadb/step_0.png)
 
-Here is a list of what we need to set up this container:
+What we need to do to set this container up is basically to install MariaDB package and client, create both MariaDB and MySQL configuration files and write a MySQL script that creates a database that will be used later by WordPress.
 
-- installed mariadb + mariadb client
-- mysql configuration file
-- changing the mriadb configuration.
-- a file for uploading an sql script
-- sql script for creating a worpdress database
+Here is a brief step-by-step for this Dockerfile, listed as ``KEYWORD`` : Idea:
+- ``FROM`` : Get OS system image (as always).
+- ``RUN`` : Install mariadb and mariadb client.
+- ``RUN`` : Create MySQL socket directory
+- ``RUN`` : Configure MariaDB
+- ``RUN`` : Init MariaDB
+- ``EXPOSE`` : Port to be used
+- ``COPY`` : Copy mySQL script
+- ``ENTRYPOINT`` : Set entrypoint
+- ``CMD`` : Start mySQL server
 
-Step-by-step setup plan:
-
-- install mariadb + mariadb client in Dockerfile
-- replace the mysql consignment (you can split it directly in the Dockerfile, everything is very simple there)
-- replace the mariadb file (all this is one line, we change it directly in the Dockerfile)
-- copy the database configuration from the outside
-- create sql query
-- upload the request body itself to this file
-- execute a database creation request
-- create a console for docker-compose
-- correctly transfer passwords and usernames through environment variables
-
-Let's create a basic image of our container.
-
-`cd ~/project/srcs`
-
-`vim /mariadb/Dockerfile`
-
-File Contents:
+Now, let's see a version of the full Dockerfile with comments to explain a bit deeper what is going on in each step:
 
 ``
+# OS base image
 FROM alpine:3.16
 
-RUN apk update and add the apk file --without caching mariadb mariadb client
+# Declare build arguments (these will be passed from .env by docker-compose.yml)
+ARG DB_NAME
+ARG DB_USER
+ARG DB_PASS
 
-RUN mkdir /var/run/mysqld; \
-    chmod 777 /var/run/mysqld; \
-    { echo '[mysqld]'; \
-      echo 'skip the host cache'; \
-      echo 'allow name omission'; \
-echo 'bind address=0.0.0.0'; \
-    } | tee /etc/my.cnf.d/docker.cnf; \
-    sed -I "s|skip-network|skip-network=0|g" \
-      /etc/my.cnf.d/mariadb-server.cnf
+# Install MariaDB (update package index first and install both mariadb and client without cache)
+RUN apk update && apk add --no-cache mariadb mariadb-client
 
-RUN mysql_install_db --user=mysql --datadir=/var/lib/mysql
+# Create MySQL socket directory with correct permissions
+# chown command sets ownership of the folder /var/run/mysqld to MariaDB (which it 'mysql' user)
+RUN mkdir -p /var/run/mysqld && chown mysql:mysql /var/run/mysqld
 
-OPEN 3306
+# Configure MariaDB
+# Directory '/etc/my.cnf.d' should exists after MariDB installation, but just in case, we can create it otherwise
+# Echo writes the configuration into 'docker.cnf' file, using '\n' to have each option in newline
+# 'docker.cnf' should not exist before this command, but if so, its content will be overwritten, so no worries there =)
+RUN mkdir -p /etc/my.cnf.d && echo '[mysqld]\nskip-host-cache\nskip-name-resolve\nbind-address=0.0.0.0' > /etc/my.cnf.d/docker.cnf
 
-CUSTOM mysql
-COPY IT tools/db.sh .
-ENTRY POINT ["sh", "db.sh "]
-Command ["/usr/bin/mysqld", "--skip log error"]
+# Disable skip-networking; needed in order to allow remote connections to the database (from another containers, for instance...)
+# 'skip-networking' is a MariaDB/MySQL config option that disables all TCP/IP connections to the database and onlys allow local connections through Unix sockets
+# Thus, we need to make sure this configuration is DISABLED
+# We find and comment that option in '/etc/my.cnf.d/mariadb-server.cnf', using sed command with -i flag (modify file) and syntax 's/SEARCH/REPLACE/'
+RUN sed -i 's/^skip-networking/#skip-networking/' /etc/my.cnf.d/mariadb-server.cnf
+
+# Init MariaDB database: this command initializes a new MariaDB database by setting up the necessary files and system tables
+# mysql_install_db creates basic structure of the database, as well as default tables
+# --user==mysql flag ensures that all database files are owned by the mysql user
+# --datadir=/var/lib/mysql flag tells MariaDB where to store its data, /var/lib/mysql is the default location tipaclly
+RUN mariadb-install-db --user=mysql --datadir=/var/lib/mysql
+
+# Informs Docker that the container will listen on port 3306 (MySQL default)
+EXPOSE 3306
+
+# Copy database setup script, which has been previosly stored in '/tools'
+COPY tools/db.sh .
+
+# Set entry point, which ensures that db.sh will be executed when the containers starts
+ENTRYPOINT ["sh", "db.sh"]
+
+# Start MySQL server
+CMD ["/usr/bin/mysqld", "--skip-log-error"]
 ``
 
-What we are doing is installing mariadb and a mariadb client. If we want you to run, we'll get him back to normal. We bring to your attention one of the LAUNCH options, which, as a rule, launches a new service in the dockerhouse, and which does not facilitate a quick LAUNCH unnecessarily. Someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone someone, someone, someone, someone, someone, someone, someone, someone, someone, someone. This way we set the minimum required set of settings without creating unnecessary configs inside a single docker file.
+> The order of the lines in Dockefile is important, remember that they excute in descending order, adding "layers" or configurations to our image, so obviously you cannot change the permissions of a directory before creating that directory (silly simple example, sorry)
 
-With the second layer, we create a database from what we installed and configured on the previous layer. Specify the path where the default database will be stored. Then we open the mariadb working port and switch to using mysql, which was created during the installation of BD.
+After Dockerfile is built, the image will have the directory `/var/lib/mysql`, which will have contain:
 
-Finally, we run the database under this user.
+/var/lib/mysql/
+│-- mysql/                 # System database (user accounts, privileges, etc.)
+│-- performance_schema/     # Performance-related data
+│-- information_schema/     # Metadata about databases
+│-- ibdata1                # InnoDB system tablespace
+│-- ib_logfile0, ib_logfile1 # InnoDB log files
+│-- aria_log.*             # Aria storage engine logs
+│-- *.frm, *.ibd, *.MYD, *.MYI # Table definitions and data
+
 
 ## Step 2. Script for creating a database
 
-We invite you to a conference created specifically for wordpress:
+Now, our Dockerfile need a script that will copy when building at will be executed when the container starts. This script will create a mySQL database, let's get into it:
 
-`nano requirements/mariadb/conf/create_db.sh`
+`vim requirements/mariadb/tools/db.sh`
 
 Let's write the following code into it:
 
 ```
-#!bin/sh
+#!/bin/sh
 
+# Check MySQL database exists
 if [ ! -d "/var/lib/mysql/mysql" ]; then
 
-        running mysql:mysql /var/lib/mysql
+    echo "Initializing MariaDB data directory..."
+    chown -R mysql:mysql /var/lib/mysql
 
-        # launching
-the mysql_install_db database --basedir=/usr --datadir=/var/lib/mysql --user=mysql --rpm
+    # Initialize the database
+    mysql_install_db --basedir=/usr --datadir=/var/lib/mysql --user=mysql --rpm
 
-        tfile=`mktemp`
-        if [ ! -f "$tfile"]; then
-returns 1
-        fi
+    tfile=$(mktemp)
+    if [ ! -f "$tfile" ]; then
+        echo "Error: Failed to create temp file."
+        exit 1
+    fi
 fi
 
-if [ ! -d "/var/lib/mysql/wordpress" ]; then returns
+# Check if WordPress database exists
+if [ ! -d "/var/lib/mysql/wordpress" ]; then
+    echo "Creating database and user..."
 
-        cat << EOF > /tmp/create_db.sql
+    cat << EOF > /tmp/create_db.sql
 USE mysql;
-RESET PRIVILEGES;
-DELETE FROM mysql.user, WHERE User=";
-DELETE THE DATABASE TEST;
-DELETE FROM mysql.db, WHERE Db="test";
-DELETE FROM mysql.user, WHERE User='root' AND the host IS NOT SPECIFIED ('localhost', '127.0.0.1', '::1');
-CHANGE THE USER "root"@"localhost", IDENTIFIED AS "${DB_ROOT}";
-CREATE A DATABASE ${DB_NAME}, ENTER utf8 ENCODING, MATCH utf8_general_ci;
-CREATE A USER "${DB_USER}"@"%", DESIGNATED AS "${DB_PASS}";
-GRANT ALL PRIVILEGES IN wordpress.* FOR "${DB_USER}"@"%";
-RESET THE PRIVILEGES;
+FLUSH PRIVILEGES;
+
+DELETE FROM mysql.user WHERE User='';
+DROP DATABASE IF EXISTS test;
+DELETE FROM mysql.db WHERE Db='test';
+
+DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+
+ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_ROOT}';
+
+CREATE DATABASE ${DB_NAME} CHARACTER SET utf8 COLLATE utf8_general_ci;
+CREATE USER '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASS}';
+GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'%';
+FLUSH PRIVILEGES;
 EOF
-# run init.sql
-/usr/bin/mysqld --user=mysql --bootstrap < /tmp/create_db.sql
-rm -f /tmp/create_db.sql
+
+    # Run SQL script to set up the database
+    /usr/bin/mysqld --user=mysql --bootstrap < /tmp/create_db.sql
+    rm -f /tmp/create_db.sql
 fi
 ```
 
-This script is based on bash, in which everything is relatively complicated and incomprehensible, but it was created so that any programmer starting to study containerization would think "I can't do this anymore", "I have paws" and in general "this is not how I imagined docker!".
+The first block of the script checks if mysql is loaded and running, just in case something is not ok, but our MySQL server must be installed and running already, so this block will most probably always skipped.
 
-![mariadb stop](media/stickers/sorry.png)
-
-Well, never mind, if we look closely at the code, we can understand the following:
-
-The first block of code updates whether mysql is loading (at least for a regular database), or not, what is loading it. Checking in case something is wrong, in fact our MySQL server must be installed and running, and this block is usually skipped.
-
+(Need to understand and rephrase this paragraph...)
 The second block claims that it only works using wordpress. Of course you're not, and when I add myself to the internal block, I write a file for sql queries of the sql code to create the database in a special section 1.2. Use the environment variables that we represent. In the same block, we execute this code and delete the extra configuration file, skillfully covering our tracks like real trutskers.
 
-## Step 3. Execute the script
+## Step 3. Environment variables - Execute the script
 
-So, the creak appeared suddenly, it is impossible to upload it to the Dockerfile.:
+For the script to work, and the database to be created and functional, we need to pass the environment variables to the container. 
 
-`nano/mariadb/Dockerfile requirements`
+Environment variables are always kept separated from the project code, especially on open-code projects, for security reasons, and the subject do remids you this several times.
 
-To do this, write the command:
-
-```
-COPY IT requirements/mariadb/conf/create_db.sh .
-LAUNCH sh create_db.sh && rm create_db.sh
-```
-
-But for the script to work, we need to pass the environment variables to create the database. Temporary environments are taken from abroad.Perhaps these are the very secret materials that are usually kept separate from the republic code. You can store them in encrypted partitions or even in password managers like KeePass perfectly. Their syntax is the simplest, you can put it in any application that supports text fields. The main thing is that no one can get access to them.
-
-In docker, there are two ways to pass an environment variable in the form: through an ARGUMENT and through an ENVIRONMENT. Because of this, arguments are presented that may use this option and will not be effective after writing it. Therefore, we will transmit all these secrets through ARG, so that they will not be surrounded by another person.
-
-Instead, we are switching to new ones that will be surrounded by an already known container. We will not use them for our tasks.
-
-Let's write our environment variables in the container:
+In docker, there are several ways to pass or parse the .env variables to the container image. In this case, we chose to parse the variables in the Dockerfile, while the docker-compose will pass them to it from .env as arguments, that is why we had this at the beggining of the Dockerfile:
 
 ```
-ARGUMENT DB_NAME \
-DB_USER \
-DB_PASS
+# Dockerfile
+# Declare build arguments (these will be passed from the environment but NOT saved in the image)
+ARG DB_NAME
+ARG DB_USER
+ARG DB_PASS
 ```
-
-With everything you need, the Dockerfile can be viewed as follows:
-
-``
-FROM alpine:3.16
-
-DB_NAME \ DB_USER
-\ DB_PASS ARGUMENT
-
-
-RUN the apk update and add the apk file --without caching mariadb mariadb client
-
-RUN mkdir /var/run/mysqld; \
-    chmod 777 /var/run/mysqld; \
-    { echo '[mysqld]'; \
-      echo 'skip-host cache'; \
-echo 'allow name to be skipped'; \
-echo 'bind-address=0.0.0.0'; \
-    } | tee /etc/my.cnf.d/docker.cnf; \
-    sed -I "s|skip-network|skip-network=0|g" \
-/etc/my.cnf.d/mariadb-server.cnf
-
-RUN mysql_install_db --user=mysql --datadir=/var/lib/mysql
-
-OPEN 3306
-
-COPY IT requirements/mariadb/conf/create_db.sh .
-LAUNCH sh create_db.sh && rm create_db.sh
-mysql USER
-Command ["/usr/bin/mysqld", "--skip log error"]
-``
 
 ## Step 4. Configuration of docker-compose
 
-We continue to edit our docker-compose.yml
-
-The mariadb section looks like this:
+We continue to edit our docker-compose.yml, taking into account what we said about .env variables before.
 
 ```
   mariadb:

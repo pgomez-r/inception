@@ -1,22 +1,46 @@
+# OS base image
 FROM alpine:3.16
 
-RUN apk update and add the apk file --without caching mariadb mariadb client
+# Declare build arguments (these will be passed from .env by docker-compose.yml)
+ARG DB_NAME
+ARG DB_USER
+ARG DB_PASS
 
-RUN mkdir /var/run/mysqld; \
-    chmod 777 /var/run/mysqld; \
-    { echo '[mysqld]'; \
-      echo 'skip the host cache'; \
-      echo 'allow name omission'; \
-echo 'bind address=0.0.0.0'; \
-    } | tee /etc/my.cnf.d/docker.cnf; \
-    sed -I "s|skip-network|skip-network=0|g" \
-      /etc/my.cnf.d/mariadb-server.cnf
+# Install MariaDB (update package index first and install both mariadb and client without cache)
+RUN apk update && apk add --no-cache mariadb mariadb-client
 
-RUN mysql_install_db --user=mysql --datadir=/var/lib/mysql
+# Create MySQL socket directory with correct permissions
+# chown command sets ownership of the folder /var/run/mysqld to MariaDB (which it 'mysql' user)
+RUN mkdir -p /var/run/mysqld && chown mysql:mysql /var/run/mysqld
 
-OPEN 3306
+# Configure MariaDB
+# Directory '/etc/my.cnf.d' should exists after MariDB installation, but just in case, we can create it otherwise
+# Echo writes the configuration into 'docker.cnf' file, using '\n' to have each option in newline
+# 'docker.cnf' should not exist before this command, but if so, its content will be overwritten, so no worries there =)
+RUN mkdir -p /etc/my.cnf.d && echo '[mysqld]\nskip-host-cache\nskip-name-resolve\nbind-address=0.0.0.0' > /etc/my.cnf.d/docker.cnf
 
-CUSTOM mysql
-COPY IT tools/db.sh .
-ENTRY POINT ["sh", "db.sh "]
-Command ["/usr/bin/mysqld", "--skip log error"]
+# Disable skip-networking; needed in order to allow remote connections to the database (from another containers, for instance...)
+# 'skip-networking' is a MariaDB/MySQL config option that disables all TCP/IP connections to the database and onlys allow local connections through Unix sockets
+# Thus, we need to make sure this configuration is DISABLED
+# We find and comment that option in '/etc/my.cnf.d/mariadb-server.cnf', using sed command with -i flag (modify file) and syntax 's/SEARCH/REPLACE/'
+RUN sed -i 's/^skip-networking/#skip-networking/' /etc/my.cnf.d/mariadb-server.cnf
+
+# Init MariaDB database: this command initializes a new MariaDB database by setting up the necessary files and system tables
+# mysql_install_db creates basic structure of the database, as well as default tables
+# --user==mysql flag ensures that all database files are owned by the mysql user
+# --datadir=/var/lib/mysql flag tells MariaDB where to store its data, /var/lib/mysql is the default location tipaclly
+RUN mariadb-install-db --user=mysql --datadir=/var/lib/mysql
+
+# Informs Docker that the container will listen on port 3306 (MySQL default)
+EXPOSE 3306
+
+# Copy database setup script, which has been previosly stored in '/tools'
+COPY tools/db.sh .
+
+# Set entry point, which ensures that db.sh will be executed when the containers starts
+ENTRYPOINT ["sh", "db.sh"]
+
+# Start MySQL server
+CMD ["/usr/bin/mysqld", "--skip-log-error"]
+
+#TODO: Make sure Disable skip-networking step is happening correctly, check files in maridb root
