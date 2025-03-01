@@ -147,6 +147,4 @@ fclean:
 
 Let's test this Makefile on our test container and then move on to the combat project!
 
-![makefile](media/stickers/dogengine.png)
-
 > And don't forget to take a snapshot and save yourself in a cloud!

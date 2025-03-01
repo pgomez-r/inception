@@ -1,28 +1,10 @@
 # Creating a Mariadb container
 
-At this step, the size of my snapshots increased to two gigs, and it became difficult for me to download them from the cloud, since files with more than 2 gigabytes of mail reduce the speed.
-
-Since I won't need to go back to the old snapshots anyway, I decided to keep only the new configurations and delete all the old ones.
-
-This is what my snapshot list looked like before it was deleted.:
-
-![mariadb setup](media/remove_snapshots/step_0.png)
-
-That's how many of them are left after. As you can see, I have left only the last ones. 
-
-![mariadb setup](media/remove_snapshots/step_1.png)
-
-The problem of low download speed has been resolved.
-
-## Step 1. Create a Dockerfile
-
-Let's see what the French want from us, simple Russian devops.:
+## Step 1. Create the Dockerfile for MariaDB
 
 ![mariadb setup](media/docker_mariadb/step_0.png)
 
-That's why it's from nginx. Dockerfile and necessary settings. To understand this, dear reader, as in the case of creating a wordpress library:
-
-Here is a list of what we need to set up the container.:
+Here is a list of what we need to set up this container:
 
 - installed mariadb + mariadb client
 - mysql configuration file
@@ -35,27 +17,25 @@ Step-by-step setup plan:
 - install mariadb + mariadb client in Dockerfile
 - replace the mysql consignment (you can split it directly in the Dockerfile, everything is very simple there)
 - replace the mariadb file (all this is one line, we change it directly in the Dockerfile)
-- copy the database configuration configuration from the outside
-- created for sql query
+- copy the database configuration from the outside
+- create sql query
 - upload the request body itself to this file
 - execute a database creation request
 - create a console for docker-compose
 - correctly transfer passwords and usernames through environment variables
 
-In general, everything is "simple", you can't figure it out without a hundred grams. Let's start by creating a container.
-
-Let's create a basic image of our container. In order not to generate unnecessary configs, we proceed as follows:
+Let's create a basic image of our container.
 
 `cd ~/project/srcs`
 
-`nano/mariadb/Dockerfile requirements`
+`vim /mariadb/Dockerfile`
 
 File Contents:
 
 ``
 FROM alpine:3.16
 
-RUN the apk update and add the apk file --without caching mariadb mariadb client
+RUN apk update and add the apk file --without caching mariadb mariadb client
 
 RUN mkdir /var/run/mysqld; \
     chmod 777 /var/run/mysqld; \
@@ -77,7 +57,7 @@ ENTRY POINT ["sh", "db.sh "]
 Command ["/usr/bin/mysqld", "--skip log error"]
 ``
 
-Here I am launching a STARTUP toolkit that installs a software called mariadb and a mariadb client. If we want you to run, we'll get him back to normal. We bring to your attention one of the LAUNCH options, which, as a rule, launches a new service in the dockerhouse, and which does not facilitate a quick LAUNCH unnecessarily. Someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone someone, someone, someone, someone, someone, someone, someone, someone, someone, someone. This way we set the minimum required set of settings without creating unnecessary configs inside a single docker file.
+What we are doing is installing mariadb and a mariadb client. If we want you to run, we'll get him back to normal. We bring to your attention one of the LAUNCH options, which, as a rule, launches a new service in the dockerhouse, and which does not facilitate a quick LAUNCH unnecessarily. Someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone, someone someone, someone, someone, someone, someone, someone, someone, someone, someone, someone. This way we set the minimum required set of settings without creating unnecessary configs inside a single docker file.
 
 With the second layer, we create a database from what we installed and configured on the previous layer. Specify the path where the default database will be stored. Then we open the mariadb working port and switch to using mysql, which was created during the installation of BD.
 

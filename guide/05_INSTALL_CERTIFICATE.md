@@ -210,6 +210,4 @@ At this point, we can turn off the container with the command
 
 ```docker-compose down```
 
-![vsftpd setup](media/stickers/gone.png)
-
-and move on to creating a Makefile!
+Let's move on to creating a Makefile!
