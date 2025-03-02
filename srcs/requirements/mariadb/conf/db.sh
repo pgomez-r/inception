@@ -17,7 +17,7 @@ if [ ! -d "/var/lib/mysql/mysql" ]; then
 fi
 
 # Check if the WordPress database exists
-if [ ! -d "/var/lib/mysql/wordpress" ]; then
+if [ ! -d "/var/lib/mysql/${DB_NAME}" ]; then
 	echo "Creating database and user..."
 
 	cat << EOF > /tmp/create_db.sql
@@ -42,3 +42,6 @@ EOF
 	/usr/bin/mysqld --user=mysql --bootstrap < /tmp/create_db.sql
 	rm -f /tmp/create_db.sql
 fi
+
+# TODO: wordpress database (or DB_NAME, whatever name you use) not creating
+# TODO: after fix, update files in guide

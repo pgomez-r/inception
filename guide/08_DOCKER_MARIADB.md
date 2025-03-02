@@ -21,7 +21,7 @@ Here is a brief step-by-step for this Dockerfile, listed as ``KEYWORD`` : Idea:
 
 Now, let's see a version of the full Dockerfile with comments to explain a bit deeper what is going on in each step:
 
-``
+```
 # OS base image
 FROM alpine:3.16
 
@@ -58,15 +58,15 @@ RUN mariadb-install-db --user=mysql --datadir=/var/lib/mysql
 # Informs Docker that the container will listen on port 3306 (MySQL default)
 EXPOSE 3306
 
-# Copy database setup script, which has been previosly stored in '/tools'
-COPY tools/db.sh .
+# Copy database setup script, which has been previosly stored in '/conf'
+COPY conf/db.sh .
 
 # Set entry point, which ensures that db.sh will be executed when the containers starts
 ENTRYPOINT ["sh", "db.sh"]
 
 # Start MySQL server
 CMD ["/usr/bin/mysqld", "--skip-log-error"]
-``
+```
 
 > The order of the lines in Dockefile is important, remember that they excute in descending order, adding "layers" or configurations to our image, so obviously you cannot change the permissions of a directory before creating that directory (silly simple example, sorry)
 
@@ -86,7 +86,7 @@ After Dockerfile is built, the image will have the directory `/var/lib/mysql`, w
 
 Now, our Dockerfile need a script that will copy when building at will be executed when the container starts. This script will create a mySQL database, let's get into it:
 
-`vim requirements/mariadb/tools/db.sh`
+`vim requirements/mariadb/conf/db.sh`
 
 Let's write the following code into it:
 
@@ -160,22 +160,18 @@ ARG DB_PASS
 
 ## Step 4. Configuration of docker-compose
 
-We continue to edit our docker-compose.yml, taking into account what we said about .env variables before.
+We continue to edit our docker-compose.yml, taking into account what we said about `.env` variables before.
 
 ```
   mariadb:
     build:
-      context: .
-      dockerfile: mariadb/Dockerfile
+      context: ./requirements/mariadb
+      dockerfile: Dockerfile
       args:
         DB_NAME: ${DB_NAME}
         DB_USER: ${DB_USER}
         DB_PASS: ${DB_PASS}
-        DB_ROOT: ${DB_ROOT}
     container_name: mariadb
-    ports:
-      - "3306:3306"
-    restart: always
 ```
 As we can see, our permals are passed to ARG through the args section in the build section. They can only be transmitted here, because they are launched only during the build and are not present in the image, unlike ENV, which are transmitted through the environment section already inside the service.
 
@@ -187,8 +183,19 @@ Let's not forget to mount the partition in the same way so that the database sta
 ```
 
 Mariadb is running on port 3306, so this port must be open.
+```
+    ports:
+      - "3306:3306"
+```
 
-The entire docker-compose file:
+Also, at this point where we are starting to use volumes, we have to "declare" them not only within the service using the volumen itself, but also in the general scope of the docker-compose.yml -otherwise, the build will fail-. This has to be done bellow the services section of the file, and for now just declaring them will be enough (we will add some options later on)
+
+```
+volumes:
+  db-volume:
+```
+
+The entire docker-compose file will look like this:
 
 ```
 version: '3'
@@ -196,36 +203,42 @@ version: '3'
 services:
   nginx:
     build:
-      context: .
-      dockerfile: requirements/nginx/Dockerfile
+      context: ./requirements/nginx
+      dockerfile: Dockerfile
     container_name: nginx
-#    depends_on:
-#      - wordpress
+  #  depends_on:
+  #    - wordpress
     ports:
       - "443:443"
+  #  networks:
+  #    - inception
     volumes:
       - ./requirements/nginx/conf/:/etc/nginx/http.d/
       - ./requirements/nginx/tools:/etc/nginx/ssl/
-      - /home/${USER}/simple_docker_nginx_html/public/html:/var/www/
-    restart: always
+    restart: on-failure
 
   mariadb:
     build:
-      context: .
-      dockerfile: requirements/mariadb/Dockerfile
+      context: ./requirements/mariadb
+      dockerfile: Dockerfile
       args:
         DB_NAME: ${DB_NAME}
         DB_USER: ${DB_USER}
         DB_PASS: ${DB_PASS}
-        DB_ROOT: ${DB_ROOT}
     container_name: mariadb
     ports:
       - "3306:3306"
+    # networks:
+    #   - inception
     volumes:
       - db-volume:/var/lib/mysql
-    restart: always
+    restart: on-failure
+
+volumes:
+  db-volume:
 ```
-## Step 5. Checking the database operation
+
+## Step 5. Checking the database status
 
 In order to check if everything has worked out, we need to run the following command after starting the container:
 
@@ -257,5 +270,5 @@ There must be a database created by us with the name `wordpress` at the bottom! 
 
 But if everything is done correctly, congratulations - we have successfully launched the database!
 
-Exit the environment with the exit command or Ctrl+D.
+Exit MariaDB environment with the exit command or Ctrl+D.
 

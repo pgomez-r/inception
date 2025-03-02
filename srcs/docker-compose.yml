@@ -3,14 +3,37 @@ version: '3'
 services:
   nginx:
     build:
-      context: .
-      dockerfile: requirements/nginx/Dockerfile
+      context: ./requirements/nginx
+      dockerfile: Dockerfile
     container_name: nginx
-#    depends_on:
-#      - wordpress
+  #  depends_on:
+  #    - wordpress
     ports:
       - "443:443"
+  #  networks:
+  #    - inception
     volumes:
       - ./requirements/nginx/conf/:/etc/nginx/http.d/
       - ./requirements/nginx/tools:/etc/nginx/ssl/
     restart: on-failure
+
+  mariadb:
+    build:
+      context: ./requirements/mariadb
+      dockerfile: Dockerfile
+      args:
+        DB_NAME: ${DB_NAME}
+        DB_USER: ${DB_USER}
+        DB_PASS: ${DB_PASS}
+        DB_ROOT: ${DB_ROOT}
+    container_name: mariadb
+    ports:
+      - "3306:3306"
+    # networks:
+    #   - inception
+    volumes:
+      - db-volume:/var/lib/mysql
+    restart: on-failure
+
+volumes:
+  db-volume:

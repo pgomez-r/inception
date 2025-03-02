@@ -5,6 +5,7 @@ FROM alpine:3.16
 ARG DB_NAME
 ARG DB_USER
 ARG DB_PASS
+ARG DB_ROOT
 
 # Install MariaDB (update package index first and install both mariadb and client without cache)
 RUN apk update && apk add --no-cache mariadb mariadb-client
@@ -29,16 +30,18 @@ RUN sed -i 's/^skip-networking/#skip-networking/' /etc/my.cnf.d/mariadb-server.c
 # mysql_install_db creates basic structure of the database, as well as default tables
 # --user==mysql flag ensures that all database files are owned by the mysql user
 # --datadir=/var/lib/mysql flag tells MariaDB where to store its data, /var/lib/mysql is the default location tipaclly
-RUN mariadb-install-db --user=mysql --datadir=/var/lib/mysql
+RUN mysql_install_db --user=mysql --datadir=/var/lib/mysql
 
 # Informs Docker that the container will listen on port 3306 (MySQL default)
 EXPOSE 3306
 
-# Copy database setup script, which has been previosly stored in '/tools'
-COPY tools/db.sh .
+# Copy database setup script, which has been previosly stored in '/conf'
+COPY conf/db.sh .
 
-# Set entry point, which ensures that db.sh will be executed when the containers starts
-ENTRYPOINT ["sh", "db.sh"]
+# Execute the script to create and init the database
+RUN sh db.sh
+
+USER mysql
 
 # Start MySQL server
 CMD ["/usr/bin/mysqld", "--skip-log-error"]
