@@ -1,7 +1,7 @@
 NAME = inception
 
 all:
-@printf "Setting configuration for ${name}...\n"
+	@printf "Setting configuration for ${name}...\n"
 	@docker-compose -f ./docker-compose.yml up -d
 
 build:
@@ -21,7 +21,7 @@ clean: down
 	@docker system prune -a
 
 fclean:
-@printf "Complete cleanup of all docker configurations\n"
+	@printf "Complete cleanup of all docker configurations\n"
 	@docker stop $$(docker ps -qa)
 	@docker system prune --all --force --volumes
 	@docker network prune --force

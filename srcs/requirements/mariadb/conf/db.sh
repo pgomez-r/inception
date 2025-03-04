@@ -42,6 +42,3 @@ EOF
 	/usr/bin/mysqld --user=mysql --bootstrap < /tmp/create_db.sql
 	rm -f /tmp/create_db.sql
 fi
-
-# TODO: wordpress database (or DB_NAME, whatever name you use) not creating
-# TODO: after fix, update files in guide

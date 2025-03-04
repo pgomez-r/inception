@@ -45,5 +45,3 @@ USER mysql
 
 # Start MySQL server
 CMD ["/usr/bin/mysqld", "--skip-log-error"]
-
-#TODO: Make sure Disable skip-networking step is happening correctly, check files in maridb root
