@@ -1,58 +1,49 @@
-# Создание контейнера wordpress
+# Creating a wordpress container
 
-Для общего понимания сделаем небольшое ревью задачи, разбив её на подзадачу.
+For a general understanding, let's do a small review of the task, breaking it down into subtasks.
 
-Сначала выпишем список того, что нам нужно для контейнера. Это:
+First, let's write out a list of what we need for the container:
 
-- php с плагинами для работы wordpress
-- php-fpm для связи с nginx
-- сам wordpress. Просто так, чтобы было.
+- PhP with plugins for wordpress
+- PhP-fpm for communication with nginx
+- Wordpress itself
 
-Для настройки нам потребуется выполнить следующие действия:
+To get all done, we will need to perform the following steps:
 
-- установить через Dockerfile php со всеми плагинами
-- установить через Dockerfile все необходимые программы
-- скачать и положить в /var/www сам вордпресс, так же через Dockerfile
-- подсунуть в контейнер правильный конфиг fastcgi (www.conf)
-- запустить в контейнере fastcgi через сокет php-fpm
-- добавить все необходимые разделы в docker-compose
-- установить порядок запуска контейнеров
-- добавить раздел с wordpress контейнеру с nginx
-- тестить чтобы всё работало
+- In Dockerfile: install php + plugins
+- In Dockerfile: download and install wordpress at /var/www
+- Insert the correct fastcgi config into the container (www.conf )
+- Run a fastcgi container via a php-fpm socket
+- Add all necessary partitions to docker-compose
+- Set the order of container launch
+- Add a wordpress section to an nginx container
 
-## Шаг 1. Настройка Dockerfile
+## Step 1. Setting up the Dockerfile
 
-Итак, мы переходим к настройке wordpress. Действуем всё так же: берём за основу последний alpine и накатываем на него нужный нам софт.
+``vim requirements/wordpress/Dockerfile``
 
-![рабочий wordpress](media/stickers/usually.png)
+First, check the latest version of php in the official site https://www.php.net to specify it in Dockerfile `FROM`.
 
-Переходим в srcs и делаем:
+Also, we will take three arguments `ARG` from our .env file: the name of the database, the username and password of the user.
 
-``nano requirements/wordpress/Dockerfile``
-
-Но накатываем по-умному, указав актуальную на сегодня версию php. На момент создания гайда (2022) это php 8, если с 2022 года прошло много времени, нужно зайти на [официальный сайт php](https://www.php.net/ "официальный сайт php") и посмотреть, не вышла ли более новая версия.
-
-Поэтому версию PHP я укажу в переменной - аргументе командной строки. Задаёт переменную инструкция ARG. Так же при помощи этой инструкции я принимаю три аргумента из нашего .env-файла с секретами - имя базы, имя и пароль пользователя.
-
-Разница в том, что ARG с параметрами задаёт переменную окружения с переданным параметром, а ARG без параметров берёт параметр из такой же переменной в docker-compose.
-
-Сначала перечислим базовые компоненты: это php, на котором и работает наш wordpress, php-fpm для взаимодействия с nginx и php-mysqli для взаимодействия с mariadb:
+Then, we install the basic php components: php itself, php-fpm for interacting with nginx and php-mysqli for interacting with mariadb.
 
 ```
-FROM alpine:3.16
-ARG PHP_VERSION=8 \
-    DB_NAME \
-    DB_USER \
-    DB_PASS
+FROM alpine:3.18
+ARG PHP_VERSION=82
+ARG DB_NAME
+ARG DB_USER
+ARG DB_PASS
+
 RUN apk update && apk upgrade && apk add --no-cache \
     php${PHP_VERSION} \
     php${PHP_VERSION}-fpm \
     php${PHP_VERSION}-mysqli
 ```
 
-Теперь обратимся к [документации wordpress](https://make.wordpress.org/hosting/handbook/server-environment/ "официальная документация wordpress") и посмотрим,что ещё нам понадобится.
+Now let's turn to [wordpress documentation](https://make.wordpress.org/hosting/handbook/server-environment / "official wordpress documentation") and let's see what else we need.
 
-Для полноценной работы нашего wordpress-а не поскупимся и загрузим все обязательные модули, опустив модули кэширования и дополнительные. Для бонусной части установим ещё и модуль redis. Так же загрузим пакет wget, нужный для скачивания самого wordpress, и пакет unzip для разархивирования архива со скачанным wordpress:
+For the full operation of our wordpress, we will have to download the required modules, omitting caching modules and additional ones. For the bonus part, we will also install the redis module. We will also download the wget package needed to download wordpress itself, and the unzip package to unzip the archive with the downloaded wordpress.
 
 ```
 FROM alpine:3.16
@@ -78,7 +69,7 @@ RUN apk update && apk upgrade && apk add --no-cache \
     unzip
 ```
 
-Далее исправим нужный нам конфиг - конфиг www.conf, чтобы наш fastcgi слушал все соединения по порту 9000 (путь /etc/php8/php-fpm.d/ зависит от установленной версии php!):
+Next, we'll fix the config we need. www.conf so that our fastcgi listens to all connections on port 9000 (the path /etc/php8/php-fpm.d/ depends on the installed php version!):
 
 ```
 FROM alpine:3.16
@@ -111,11 +102,11 @@ RUN apk update && apk upgrade && apk add --no-cache \
     && rm -f /var/cache/apk/*
 ```
 
-Принцип тот же, что и в предыдущем гайде. Меняем три строчки конфига sed-ом.
+The principle is the same as in the previous guide. We change three lines of the sed config.
 
-Последней командой мы очищаем кэш установленных модулей.
+With the last command, we clear the cache of installed modules.
 
-Далее нам надо скачать wordpress и разархивировать его по пути /var/www/. Для удобства сделаем этот путь рабочим командой WORKDIR:
+Next, we need to download wordpress and unzip it along the path /var/www/. For convenience, we will make this a working path with the WORKDIR team.:
 
 ```
 FROM alpine:3.16
@@ -156,19 +147,19 @@ RUN sh wp-config-create.sh && rm wp-config-create.sh && \
     chmod -R 0777 wp-content/
 CMD ["/usr/sbin/php-fpm8", "-F"]
 ```
-После назначения рабочей директори мы загрузили wget-ом последнюю версию wordpress, разархивировали её и удалили все исходные файлы.
+After assigning a working directory, we downloaded the latest version of wordpress with wget, unzipped it, and deleted all the source files.
 
-После скачивания wordpress-а мы скопируем и выполним наш конфигурационный файл, который создадим на четвёртом шаге. После выполнения мы заставим его самовыпилиться при помощи rm. Ну и дадим всем пользователям права на папку wp-conten, чтобы наша CMS могла скачивать темы, плагины, сохранять картинки и прочие файлы.
+After downloading wordpress, we will copy and execute our configuration file, which we will create in the fourth step. After completing it, we will force it to self-file using rm. Well, we will give all users the rights to the wp-conten folder so that our CMS can download themes, plugins, save images and other files.
 
-CMD же запускает наш установленный php-fpm (внимание: версия должна соответствовать установленной!)
+CMD also runs our installed php-fpm (attention: the version must match the installed one!)
 
-## Шаг 2. Конфигурация docker-compose
+## Step 2. Configuration of docker-compose
 
-Теперь добавим в наш docker-compose секцию с wordpress.
+Now let's add a wordpress section to our docker-compose.
 
-``nano docker-compose.yml``
+``vim docker-compose.yml``
 
-Для начала пропишем следующее:
+To begin with, we write the following:
 
 ```
   wordpress:
@@ -181,9 +172,9 @@ CMD же запускает наш установленный php-fpm (вним�
     restart: always
 ```
 
-Директива depends_on означает, что wordpress зависит от mariadb и не запустится, пока контейнер с базой данных не соберётся. Самым "шустрым" из наших контейнеров будет nginx - ввиду малого веса он соберётся и запустится первым. А вот база и CMS собираются примерно равное время, и чтобы не случилась, что wordpress начинает устанавливаться на ещё не развёрнутую базу потребуется указать эту зависимость.
+The depends_on directive means that wordpress depends on mariadb and will not start until the database container is assembled. nginx will be the most "nimble" of our containers - due to its low weight, it will assemble and launch first. But the database and CMS are assembled at about the same time, and in order to prevent wordpress from starting to be installed on a database that has not yet been deployed, you will need to specify this dependency.
 
-Далее мы передадим в контейнер те самые "секреты", хранимые в .env-файле:
+Next, we will transfer to the container the very "secrets" stored in the .env file.:
 
 ```
       args:
@@ -192,7 +183,7 @@ CMD же запускает наш установленный php-fpm (вним�
         DB_PASS: ${DB_PASS}
 ```
 
-Эти аргументы мы помещаем в раздел build:
+We put these arguments in the build section.:
 
 ```
   wordpress:
@@ -211,9 +202,9 @@ CMD же запускает наш установленный php-fpm (вним�
       - wp-volume:/var/www/
 ```
 
-## Шаг 3. Создание разделов и сети
+## Step 3. Create partitions and Network
 
-У nginx и wordpress должен быть общий раздел для обмена данными. Так же по заданию нужен раздел для хранения базы данных. И всё это должно храниться в нашем /home/<username>/data. Можно примонтировать туда и туда одну и ту же папку, но для удобства создадим раздел, указав путь к его папке:
+nginx and wordpress should have a common section for data exchange. Also, the task requires a section for storing the database. And all this should be stored in our /home/<username>/data. You can mount the same folder back and forth, but for convenience, create a partition by specifying the path to its folder:v
 
 ```
 volumes:
@@ -230,17 +221,16 @@ volumes:
       device: /home/${USER}/data/mariadb
 ```
 
-Далее по заданию мы должны объединить наши контейнеры в единую сеть. На самом деле все контейнеры, которые прописаны внутри одного docker-compose - файле или конфигурации которых находятся в одной папке, автоматически объединяются в общую сеть. Однако название сети задаётся не нами. А ведь обращаться к сети иногда бывает полезно.
+Next, we need to combine our containers into a single network. In fact, all containers that are registered inside a single docker-compose file or whose configurations are located in the same folder are automatically combined into a common network. However, the name of the network is not set by us. But accessing the web can sometimes be useful.
 
-Для того, чтобы наша сеть была доступна нам по имени, давайте создадим вдобавок к дефолтной нашу собственную сеть. Создаётся она крайне просто:
-
+In order for our network to be accessible to us by name, let's create our own network in addition to the default one. It is created extremely simply:
 ```
 networks:
     inception:
         driver: bridge
 ```
 
-Теперь добавим этот раздел и нашу сеть ко всем контейнерам, которые от него зависят. И не забудем раскомментировать зависимости nginx-а. Таким образом вся наша конфигурация будет выглядеть так:
+Now let's add this section and our network to all the containers that depend on it. And let's not forget to uncomment nginx dependencies. So our entire configuration will look like this:
 
 ```
 version: '3'
@@ -316,19 +306,19 @@ networks:
         driver: bridge
 ```
 
-Так же создадим  для наших разделов в домашнем каталоге:
+We will also create for our sections in the home directory:
 
-## Шаг 4. Создадим скрипт, генерирующий папку data
+## Step 4. Create a script that generates the data folder
 
-При запуске make-файла мы должны проверить на существование директории, которые нам необходимы, и если их нет, то создать их. Это будет делать простой скрипт. Положим его, к примеру, в папку wordpress/tools, сначала создав эту папку:
+When running a makefile, we need to check for the existence of the directories we need, and if they don't exist, then create them. A simple script will do this. Let's put it, for example, in the wordpress/tools folder:
 
-``mkdir requirements/wordpress/tools``
+```
+mkdir requirements/wordpress/tools
 
-Создаём файл:
+vim requirements/wordpress/tools/make_dir.sh
+```
 
-``nano requirements/wordpress/tools/make_dir.sh``
-
-Вставляем в него следующий код:
+And add this code:
 
 ```
 #!/bin/bash
@@ -339,33 +329,33 @@ if [ ! -d "/home/${USER}/data" ]; then
 fi
 ```
 
-Этот код проверяет наличие папки data в папке пользователя, и при отсутствии создаёт все необходимые конфигурации папки.
+This code checks for the data folder in the user's folder, and if it is missing, creates all the necessary folder configurations.
 
-Дадим скрипту права на исполнение:
+Remember to give the script execution rights:
 
 ``chmod +x requirements/wordpress/tools/make_dir.sh``
 
-Тут же выполним его:
+Let's execute it:
 
 ``requirements/wordpress/tools/make_dir.sh``
 
-И проверим результат:
+And now check the result:
 
 ``ls ~/data/``
 
-Мы должны увидеть две наших папки - wordpress и mariadb.
+We should see two of our folders - wordpress and mariadb.
 
-Ниже я добавлю этот скрипт в Makefile и он будет работать как надо.
+Below I will add this script to the Makefile and it will work as it should.
 
-## Шаг 5. Создание файла конфигурации worpdress
+## Step 5. Creating the worpdress configuration file
 
-Нам нужно будет скопировать в папку wordpress-а конфигурационный файл, который соединит нас с контейнером базы данных.
+We will need to copy the configuration file to the wordpress folder, which will connect us to the database container.
 
-Создадим этот файл в папке conf:
+Let's create this file in the conf folder:
 
-``nano requirements/wordpress/conf/wp-config-create.sh``
+``vim requirements/wordpress/conf/wp-config-create.sh``
 
-Вставим в него следующее содержимое:
+Let's insert the following contents into it:
 
 ```
 #!bin/sh
@@ -393,17 +383,17 @@ EOF
 fi
 ```
 
-Обратим внимание на \$table_prefix = 'wp_'; Чтобы в $table_prefix не записалась пустая строка (так как в bash у нас нет такой переменной), мы обязательно экранируем строку обратным слэшем - "\\".
+Let's pay attention to \$table_prefix = 'wp_'; So that an empty string is not written to $table_prefix (since we do not have such a variable in bash), we make sure to escape the string with a backslash - "\\".
 
-Некоторые настройки, касающиеся redis, пригодятся нам только в бонусной части. В основной они тоже не будут нам мешать.
+Some settings related to redis will be useful to us only in the bonus part. They won't bother us with the main one either.
 
-## Шаг 6. Изменение конфигурации nginx
+## Step 6. Changing nginx configuration
 
-Нам необходимо изменить конфигурацию nginx-а чтобы тот обрабатывал только php-файлы. Для этого удалим из конфига все index.html.
+We need to change the configuration of nginx so that it processes only php files. To do this, remove everything from the config index.html .
 
-``nano requirements/nginx/conf/nginx.conf``
+``vim requirements/nginx/conf/nginx.conf``
 
-Для полного счастья нам осталось раскомментировать блок nginx-а, обрабатывающий php, чтобы наш nginx.conf выглядел следующим образом:
+For complete happiness, we just need to uncomment the nginx block that processes php so that our nginx.conf looks like this:
 
 ```
 server {
@@ -435,21 +425,21 @@ server {
 }
 ```
 
-Обязательно заменим все <your_nickname> на ник в интре чтобы это работало.
+We will definitely replace all <your_nickname> with an inter nickname to make it work.
 
-Вот теперь наша конфигурация готова к запуску.
+Now our configuration is ready to launch.
 
-# Шаг 7. Проверка работы конфигурации
+# Step 7. Checking the configuration operation
 
-Итак, после того, как мы выполним ``docker-compose up -d --build`` в нашей директории ``~/project/srcs``, мы некоторое время будем наблюдать за сборкой конфигурации. И наконец мы обнаружим, что всё собралось и работает:
+So, after we run `docker-compose u --build` in our `~/project/srcs" directory, we will observe the configuration build for a while. And finally, we will find that everything is assembled and working.:
 
 ![настройка wordpress](media/docker_wordpress/install_all.png)
 
-На всякий случай проверим работоспособность конфигурации. Выполним несколько команд. Сначала прослушаем сокет php:
+Just in case, we will check the functionality of the configuration. Let's run a few commands. First, listen to the php socket:
 
 ``docker exec -it wordpress ps aux | grep 'php'``
 
-Вывод должен быть следующим:
+The output should be as follows:
 
 ```
     1 root      0:00 {php-fpm8} php-fpm: master process (/etc/php8/php-fpm.conf
@@ -457,7 +447,7 @@ server {
    10 nobody    0:00 {php-fpm8} php-fpm: pool www
 ```
 
-Затем посмотрим работу php, узнав версию:
+Then let's see how php works, having found out the version:
 
 ``docker exec -it wordpress php -v``
 
@@ -467,7 +457,7 @@ Copyright (c) The PHP Group
 Zend Engine v4.0.22, Copyright (c) Zend Technologies
 ```
 
-И наконец, проверим, все ли модули установились:
+Finally, let's check if all the modules are installed.:
 
 ``docker exec -it wordpress php -m``
 
@@ -499,43 +489,39 @@ zlib
 [Zend Modules]
 ```
 
-...и вуаля! - перед нами откроется панель настроек:
+... and voila! - the settings panel opens in front of us:
 
 ![настройка wordpress](media/docker_wordpress/welcome.png)
 
-И вот, когда вы успешно запустили вордпресс, где-то в Париже возрадовался один разработичк...
+## Step 8. Setting up wordpress
 
-![настройка wordpress](media/stickers/vualya.png)
-
-## Шаг 8. Настройка wordpress
-
-После того как мы проверили работу всех систем, мы можем приступать к настройке установленного wordpress-а. Для этого мы открываем наш сайт в браузере хостовой машины:
+After we have checked the operation of all the systems, we can start configuring the installed wordpress. To do this, we open our website in the browser of the host machine.:
 
 ``https://127.0.0.1``
 
-Если мы хотим видеть наш сайт, не забываем указывать протокол https.
+If we want to see our website, do not forget to specify the https protocol.
 
-Вбиваем нужные нам логин, пароль, имя сайта (или сохраняем сгенерированный пароль в блокнотик), я записал следующее:
+We enter the login, password, and website name we need (or save the generated password in a notebook), I wrote down the following:
 
-![настройка wordpress](media/docker_wordpress/records.png)
+![wordpress setup](media/docker_wordpress/records.png)
 
-После нажатия кнопки "Установить Wordpress" мы увидим окошко с сообщением об успешной установке и предложением залогиниться:
+After clicking the "Install Wordpress" button, we will see a window with a message about the successful installation and an offer to log in.:
 
-![настройка wordpress](media/docker_wordpress/done.png)
+![wordpress setup](media/docker_wordpress/done.png)
 
-Нажимаем кнопку логина, вводим свой логин и пароль:
+Click the login button, enter your username and password:
 
-![настройка wordpress](media/docker_wordpress/login.png)
+![wordpress setup](media/docker_wordpress/login.png)
 
-И попадаем на стартовую страницу нашего чистого wordpress-а!
+And we get to the start page of our clean wordpress site!
 
-![настройка wordpress](media/docker_wordpress/startpage.png)
+![wordpress setup](media/docker_wordpress/startpage.png)
 
-Поздравляю, мы завершили установку и настройку нашего wordpress. Теперь мы можем накатить на него тему, которая нам понравится, и получить прекрасный локальный сайт, который будет отображаться в браузере!
+Congratulations, we have completed the installation and configuration of our wordpress. Now we can roll out a theme that we like on it and get a great local website that will be displayed in the browser!
 
-## Шаг 9. Изменение Makefile
+## Step 9. Changing the Makefile
 
-Так же не забываем копировать наш Makefile. Его придётся немного изменить, потому как docker-compose у нас лежит по пути srcs. Это накладывает определённые ограничения на нас, потому как делая make на директорию выше мы не подхватим наши секреты (система будет искать .env в той же директории, где лежит Makefile). Поэтому указываем нашему docker-compose не только путь к ./srcs, но и путь к .env. Делается это при помощи указания флага  --env-file:
+Also, do not forget to copy our Makefile. It will have to be changed a bit, because docker-compose is on the srcs path. This imposes certain restrictions on us, because by making a make on the directory above, we will not pick up our secrets (the system will search.env in the same directory where the Makefile is located). Therefore, we indicate to our docker-compose not only the path to ./srcs, but also the path to .env. This is done by specifying the --env-file flag.:
 
 ```
 name = inception
@@ -575,10 +561,10 @@ fclean:
 .PHONY	: all build down re clean fclean
 ```
 
-Перед сохранением в облако советую сделать make fclean.
+I advise you to do a make clean before saving it to the cloud.
 
 ***
 
-Развёртывание проекта происходит ``make build``, остановка - ``make down``, запуск после остановки - ``make`` и т.д.
+The project is deployed `make build", the stop is `make down", the start after the stop is `make`, etc`
 
-На этом основная часть проекта закончена. После настроек wordpress проект можно будет сдать. Так же нужно сохранить в репозиторий все исходники и уметь грамотно разворачивать из них свой проект.
+This completes the main part of the project. After configuring wordpress, the project can be submitted. You also need to save all the sources to the repository and be able to correctly deploy your project from them.

@@ -1,16 +1,14 @@
-# Самописный сайт и установка portainer
+# Self-made website and portainer installation
 
+## Step 1. Self-made website
 
+According to the assignment, we have to create a self-written website using the technology that is closer to us. Here, everyone chooses for themselves which language to use and which container to create. Those who like JS can use a container with nodejs and react, python lovers can create a page on django, etc. I didn't bother and used a ready-made solution for creating a page - a wysiwyg editor for generating static html.
 
-## Шаг 1. Самописный сайт
+The site itself is located in the `requirements/bonus/website/conf`, it can be opened directly in the browser, as it is html.
 
-По заданию мы должны создать самописный сайт используя ту технологию, которая нам ближе. Здесь каждый выбирает сам, какой язык использовать и какой контейнер создавать. Те, кому нравится JS, могут использовать контейнер с nodejs и react, любители питона могут создать страницу на django и т.д. Я не стал заморачиваться и использовал готовое решение для создания страницы - wysiwyg-редактор для генерации статичного html.
+## Step 2. Dockerfile
 
-Сам сайт лежит в ``requirements/bonus/website/conf``, его можно открыть прямо в браузере, так как это html.
-
-## Шаг 2. Dockerfile
-
-Dockerfile берём из нашего nginx, так как html-сайт мы будем крутить на том же nginx-е. Меняем дефолтный конфиг, лежащий по адресу ``/etc/nginx/http.d/default.conf``, поместив туда простенький код указывающий другую локацию вместо стандартной (/var/www):
+We take the dockerfile from our nginx, since we will run the html site on the same nginx. We are changing the default config located at `/etc/nginx/http.d/default.conf`, putting a simple code there indicating a different location instead of the standard one (/var/www):
 
 ```
 FROM alpine:3.16
@@ -28,11 +26,11 @@ EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-Копируем всё содержимое сайта при помощи маски * в нашу папку /var/www. Открываем 80-й порт (прокидывать не надо, в системе порт уже открыт). Ну и запускаем nginx без демонизации.
+We copy all the contents of the site using a mask * to our folder /var/www. We open the 80th port (there is no need to scroll, the port is already open in the system). Well, we run nginx without demonization.
 
-## Шаг 3. Секция в docker-compose
+## Step 3. Section in docker-compose
 
-Тут мы просто берём те же исходные данные, что и у wordpress, но удаляем всё лишнее.
+Here we just take the same source data as wordpress, but delete everything unnecessary.
 
 ```
   website:
@@ -45,70 +43,70 @@ CMD ["nginx", "-g", "daemon off;"]
     restart: always
 ```
 
-Порт 80 у нас свободен, подключим его к нашему вебсайту, без необходимости накатывать ssl.
+Our port 80 is free, we will connect it to our website, without the need to roll out ssl.
 
-## Шаг 4. Запуск сайта
+## Step 4. Launching the website
 
-Если мы сделали всё правильно, переходим в папку project и делаем ``make re``. После рестарта проекта переходим на ``http://localhost`` и видим результат:
+If we have done everything correctly, go to the project folder and do `make re". After restarting the project, we switch to `http://localhost ` and we see the result:
 
-![настройка website](media/bonus_part/step_18.png)
+![website setup](media/bonus_part/step_18.png)
 
-Как видим, в этом пункте бонусов нет ничего сложного. Но именно этот пункт можно усложнять до бесконечности. Хотя, вряд ли найдутся желающие попрактиковать написание сайта на ASP.NЕT в рамках школьного проекта. Но в целом такое возможно.
+As you can see, there is nothing complicated about this bonus item. But this particular point can be complicated indefinitely. Although, it is unlikely that there will be those who want to practice writing a website on ASP.NET as part of a school project. But in general, this is possible.
 
-## Шаг 5. Portainer
+## Step 5. Portainer
 
-Установка portainer будет отличаться от установки остальных контейнеров тем, что portainer не будет зависить от нашего docker-compose, и напротив, все наши контейнеры будут управляться через portainer.
+The installation of portainer will differ from the installation of other containers in that portainer will not depend on our docker-compose, and on the contrary, all our containers will be managed through portainer.
 
-Это крутая и очень удобная утиллита с графическим дашбордом для управления контейнерами, и скоро вы пожалеете, что познакомились с ней так поздно, только в конце проекта. Она здорово облегчила бы нам написание inception, но мы же не ищем лёгких путей, правда?
+This is a cool and very convenient utility with a graphical dashboard for managing containers, and soon you will regret that you got to know it so late, only at the end of the project. It would make it much easier for us to write inception, but we're not looking for easy ways, are we?
 
-Чтобы установить portainer мы воспользуемся [официальной документацией](https://docs.portainer.io/v/ce-2.11/start/install/server/docker/linux "установить portainer"). На момент написания мною проекта inception команды были нижеследующими (в случае их изменения ориентироваться на официальную документацию, а не на гайд проекта):
+To install portainer, we will use the [official documentation](https://docs.portainer.io/v/ce-2.11/start/install/server/docker/linux "install portainer"). At the time of writing the inception project, the commands were as follows (if they change, focus on the official documentation, not on the project guide):
 
-Сначала мы создадим раздел для данных portainer:
+First, we will create a section for the portainer data.:
 
 ``docker volume create portainer_data``
 
-Затем загрузим и установим контейнер portainer через docker:
+Then download and install the portainer container via docker:
 
 ```
 docker run -d -p 8000:8000 -p 9443:9443 --name portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:2.11.1
 ```
 
-Проверяем на странице официального сайта, не изменились ли команды, выполняем актуальные и после установки проверяем страницу portainer-а:
+We check on the official website page to see if the commands have changed, run the current ones, and after installation, check the portainer page.:
 
 ``https://localhost:9443``
 
-Мы получаем уже знакомое нам предупреждение о самоподписном сертификате (да, профессиональный софт тоже их использует!), игнорируем его и переходим на страницу. Сначала нам предложат придумать пароль для дашборда. Изменить так же можно и имя пользователя. Я ввёл всё то же, что вводил для wordpress-а и нажал "создать пользователя" (create user).
+We get the familiar warning about a self-signed certificate (yes, professional software uses them too!), ignore it and go to the page. First, we will be asked to come up with a password for the dashboard. You can also change the username. I entered everything that I had entered for wordpress and clicked "create user".
 
-После того, как меня перекинуло на страницу portainer, я перешёл в ``https://localhost:9443/#!/home`` и увидел нашу локальную конфигурацию docker. Нажав на неё, я попал на страницу управления:
+After I was redirected to the portainer page, I went to `https://localhost:9443 /#!/home` and saw our local docker configuration. Clicking on it took me to the management page.:
 
-![настройка website](media/bonus_part/step_20.png)
+![website setup](media/bonus_part/step_20.png)
 
-Как мы можем видеть, в итоге у нас есть:
+As we can see, in the end we have:
 
-- 1 Стэк (один docker-compose файл)
-- 8 Контейнеров (7 контейнеров проекта и 8-й - сам portainer)
-- 9 Образов (alpine:3.16 многократно переиспользуется, потому вынесен отдельным образом)
-- 6 Разделов (3 системных для docker, разделы wp-wolume db-volume и раздел portainer_data)
-- 5 Сетей (3 системных + дефолтная сеть проекта + наша, созданная вручную сеть inception)
+- 1 Stack (one docker-compose file)
+- 8 Containers (7 project containers and the 8th container itself)
+- 9 Images (alpine:3.16 is reused many times, therefore it is taken out in a separate way)
+- 6 Sections (3 system sections for docker, wp-volume db-volume sections and portainer_data section)
+- 5 Networks (3 system + default network of the project + our manually created inception network)
 
-Всем этим можно управлять прямо из portainer. Так же можно создавать новые контейнеры, менять старые, запускать целые docker-compose конфигурации - в общем, управлять нашим контейнерным зоопарком так, как душе угодно. Portainer даёт возможность управлять всеми возможностями docker-а через графический интерфейс.
+All this can be controlled directly from the portainer. You can also create new containers, change old ones, run entire docker-compose configurations - in general, manage our container zoo the way your heart desires. Portainer allows you to manage all the features of docker through a graphical interface.
 
-![настройка vsftpd](media/stickers/pechkin.png)
+![vsftpd setup](media/stickers/pechkin.png)
 
-Но это уже совсем другая история...
+But that's a completely different story...
 
-## ИТОГИ
+## RESULTS
 
-Итак, наша задача выполнена, мы создали всё, что нам необходимо по заданию.
+So, our task is completed, we have created everything we need for the assignment.
 
-Ура, Казань, я закончил писать свой гайд!
+Hooray, Kazan, I've finished writing my guide!
 
-![настройка vsftpd](media/stickers/ufa.png)
+![vsftpd setup](media/stickers/ufa.png)
 
-Теперь можно ставить мне ~~плюсик в карму~~ звезду в гите и сдавать inception с бонусами. A ~~Добби свободен~~ я пойду награжу себя обедом в доброй столовой (на правах рекламы*).
+Now you can give me a ~~plus sign in karma~~ a star in the git and hand over the inception with bonuses. A~~Dobby is free~~ I'm going to reward myself with lunch in the kind dining room (as an advertisement*).
 
-А напоследок немного юмора от GitHub:
+And finally, some humor from GitHub.:
 
-![настройка website](media/bonus_part/JS.png)
+![website setup](media/bonus_part/JS.png)
 
-К слову, JS-библиотеки сгенерированного artisteer-ом веб-сайта действительно занимают больше всего кода. Так что всё это время мы писали JS-проект, с чем я нас и поздравляю.
+By the way, the JS libraries of the artisteer-generated website really take up the most code. So all this time we've been writing a JS project, and I congratulate us on that.

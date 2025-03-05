@@ -1,34 +1,34 @@
-# Административный интерфейс adminer
+# Adminer administrative interface
 
-Теперь нам нужно установить административную панель adminer. По сути это лёгкая СУБД, которая содержит всего лишь один php-файл!
+Now we need to install the adminer admin panel. In fact, this is a lightweight database that contains just one php file!
 
-Стало быть, для её развёртывания надо установить в контейнер php нужной нам версии, скачать нашу панельку и скормить её интерпретатору php. Звучит просто. Главное - не забыть открыть порты.
+Therefore, to deploy it, we need to install the php version we need in the container, download our panel and feed it to the php interpreter. It sounds simple. The main thing is not to forget to open the ports.
 
-Зачем она вообще нужна? Для того, чтобы можно было открыть базу данных в графическом режиме и ~~следить за манекенами~~ делать в ней любые нужные нам операции без SQL-запросов и ручных команд.
+Why is it needed at all? In order to be able to open the database in graphical mode and ~~monitor the dummies ~~ do any operations we need in it without SQL queries and manual commands.
 
-![настройка vsftpd](media/stickers/manekens.png)
+![vsftpd setup](media/stickers/manekens.png)
 
-Поехали!
+Let's go!
 
-# Шаг 1. Создание Dockerfile
+# Step 1. Create a Dockerfile
 
-Заходим на [официальный сайт adminer](https://www.adminer.org/ "скачать adminer") и смотрим особенности и зависимости:
+Go to [official adminer website](https://www.adminer.org / "download adminer") and look at the features and dependencies:
 
-![настройка vsftpd](media/bonus_part/step_12.png)
+![vsftpd setup](media/bonus_part/step_12.png)
 
-Как мы можем видеть, adminer работает с php-8 и поддерживает нашу Машу. Но как понять, какие именно пакеты необходимы для adminer в качестве зависимостей? Я не нашёл эту информацию в открытых источниках, потому подошёл к этому вопросу с другой стороны.
+As we can see, adminer works with php-8 and supports our Masha. But how do I figure out which packages are needed for adminer as dependencies? I didn't find this information in open sources, so I approached this issue from a different angle.
 
-Аналогом adminer является PhpMyAdmin, и работает эта штука на том же php. Но в отличие от Adminer-а, все зависимости PhpMyAdmin прекрасно задокументированы в [alpine-овской wiki](https://wiki.alpinelinux.org/wiki/PhpMyAdmin "список пакетов для PMA"). Именно инструкция для PMA помогла мне запустить adminer: я взял все зависимости отсюда из строки "Install the additional packages" и прогнал их через [поиск пакетов](https://pkgs.alpinelinux.org/packages?name=&branch=edge&repo=&arch=&maintainer= "поиск пакетов alpine"), подставляя вместо php7- наш текущий php8-.
+The equivalent of adminer is phpMyAdmin, and this thing runs on the same php. But unlike Adminer, all phpMyAdmin dependencies are perfectly documented in the [alpine wiki](https://wiki.alpinelinux.org/wiki/PhpMyAdmin "list of packages for PMA"). It was the instructions for PMA that helped me launch adminer: I took all the dependencies from here from the line "Install the additional packages" and ran them through [package search](https://pkgs.alpinelinux.org/packages?name=&branch=edge&repo=&arch=&maintainer = "alpine package search"), substituting our current php8 instead of php7.
 
-Отсеялись php8-mcrypt, php8-xmlrpc и, на удивление, php8-json. Удивление всё же оказалось приятным - если первые два пакета просто не реализованы ещё на alpine, то модуль json вошёл в ядро php начиная с версии 8.
+php8-mcrypt, php8-xmlrpc and, surprisingly, php8-json were eliminated. The surprise still turned out to be pleasant - if the first two packages simply haven't been implemented yet on alpine, then the json module has been included in the php core since version 8.
 
-![настройка vsftpd](media/stickers/delete.png)
+![vsftpd setup](media/stickers/delete.png)
 
-Так же я убрал ненужные нам lighttpd и fast cgi. Итак, список пакетов сформирован, приступим к созданию Dockerfile:
+I also removed the unnecessary lighttpd and fast cgi. So, the list of packages is formed, let's start creating the Dockerfile.:
 
-``nano requirements/bonus/adminer/Dockerfile``
+``vim requirements/bonus/adminer/Dockerfile``
 
-За основу возьмём всё тот же alpine 3.16, занесём в переменную версию php и установим все необходимые нам пакеты из готового списка:
+Let's take the same alpine 3.16 as a basis, add the php version to the variable and install all the packages we need from the ready list.:
 
 ```
 FROM alpine:3.16
@@ -67,13 +67,13 @@ EXPOSE 8080
 CMD	[ "php", "-S", "[::]:8080", "-t", "/var/www" ]
 ```
 
-Как видим, я делаю рабочим каталог /var/www, качаю adminer в этот каталог и называю его index.php потому что интерпретатору надо скармливать папку, а в папке он ищет именно индексный файл.
+As you can see, I make the /var/www directory my working directory, download adminer to this directory and name it index.php because the interpreter needs to feed a folder, and in the folder it is looking for the index file.
 
-Затем я открываю рабочий порт adminer-а и в CMD натравливаю php-шный интерпретатор на наш рабочий каталог с индексным файлом. Так php увидит наш файл и запустит adminer.
+Then I open the working port of adminer and in CMD I set the php interpreter on our working directory with the index file. This way php will see our file and launch adminer.
 
-# Шаг 2. Конфигурация docker-compose
+# Step 2. Configuration of docker-compose
 
-Добавляем секцию adminer в docker-compose:
+Adding the adminer section to docker-compose:
 
 ```
   adminer:
@@ -90,43 +90,43 @@ CMD	[ "php", "-S", "[::]:8080", "-t", "/var/www" ]
     restart: always
 ```
 
-Запускаться он должен после mariadb, порт 8080 должен быть открыт. Подключаем его к нашей сети inception.
+It should start after mariadb, port 8080 should be open. We connect it to our inception network.
 
-# Шаг 3. Перезапуск конфигурации
+# Step 3. Restart the configuration
 
-Итак, мы сделали всё что нужно, осталось запустить нашу конфигурацию. Однако мы сделаем небольшую проверку, чтобы наглядно посмотреть, на каком этапе создаётся база wordpress.
+So, we've done everything we need to do, it remains to run our configuration. However, we will do a small check to visually see at what stage the wordpress database is being created.
 
-Эти действия удалят все файлы и настройки нашего wordpress-а, поэтому все важные данные должны быть сохранены. Если нет желания удалять конфигурацию, то можно просто ознакомиться с этим и последующими шагами.
+These actions will delete all files and settings of our wordpress, so all important data must be saved. If you do not want to delete the configuration, then you can simply familiarize yourself with this and the following steps.
 
-Сначала выйдем в директорию с нашим Makefile:
+First, let's go to the directory with our Makefile.:
 
 ``cd ~/project/``
 
-Теперь очистим всю конфигурацию, включая файлы из раздела wordpress командой
+Now we will clear the entire configuration, including the files from the wordpress section with the command
 
 ``make clean``
 
-И снова забилдим её:
+An then make build again
 
 ``make build``
 
-Когда всё запустится первым делом открываем в браузере хостовой (не виртуальной, хотя можно и там, но раз уж прокинуты порты, то зачем себя ограничивать?) машины адрес нашего adminer-а:
+When everything starts up, the first thing we do is open the host browser (not virtual, although you can do it there, but since the ports are blocked, why limit yourself?) the machines are the address of our adminer:
 
 ``http://localhost:8080/``
 
-И мы увидим страницу входа:
+And we will see the login page.:
 
-![настройка vsftpd](media/bonus_part/step_13.png)
+![vsftpd setup](media/bonus_part/step_13.png)
 
-Таким образом мы убедились, что у нас всё работает! Итак, что же с этим делать?
+This way we made sure that everything was working for us! So, what should I do about it?
 
-# Шаг 4. Вход в adminer
+# Step 4. Log in to adminer
 
-Для начала нам нужен логин и пароль. Посмотрим cat-ом наш .env-файл:
+First, we need a username and password. Let's take a look at our .env file.:
 
 ``cat .env``
 
-Мы получим следующий вывод:
+We get the following output:
 
 ```
 DOMAIN_NAME=jleslee.42.fr
@@ -140,43 +140,43 @@ FTP_USR=ftpuser
 FTP_PWD=ftppass
 ```
 
-Отсюда нам нужны логин и пароль пользователя базы данных:
+From here, we need the username and password of the database user.:
 
 ```
 DB_USER=wpuser
 DB_PASS=wppass
 ```
 
-Вводим их в поля ввода, а в качестве хоста базы вводим "mariadb":
+We enter them in the input fields, and enter "mariadb" as the host of the database:
 
-![настройка vsftpd](media/bonus_part/step_14.png)
+![vsftpd setup](media/bonus_part/step_14.png)
 
-Войдя, мы увидим две базы. Выбираем базу нашего wordpress-а:
+Upon entering, we will see two bases. Choosing our wordpress database:
 
-![настройка vsftpd](media/bonus_part/step_15.png)
+![vsftpd setup](media/bonus_part/step_15.png)
 
-И мы увидим... Пустую базу:
+And we'll see... An empty database:
 
-![настройка vsftpd](media/bonus_part/step_16.png)
+![vsftpd setup](media/bonus_part/step_16.png)
 
-Но это не баг. Мы очистили нашу конфигурацию и пересобрали всё заново. Теперь нам нужно с нуля настроить wordpress, чтобы всё это заработало.
+But this is not a bug. We cleaned up our configuration and rebuilt everything. Now we need to set up wordpress from scratch to make it all work.
 
-Для начала установим сам wordpress.
+First, install wordpress itself.
 
-# Шаг 5. Установка wordpress
+# Step 5. Installing wordpress
 
-Переходим в браузере хоста по ссылке:
+Click on the link in the host's browser:
 
 ``https://localhost/``
 
-Повторяем 7 шаг гайда 09: запускаем установку wp и вводим все свои данные:
+Repeat step 7 of Guide 09: run the wp installation and enter all your data:
 
-![настройка wordpress](media/docker_wordpress/records.png)
+![wordpress setup](media/docker_wordpress/records.png)
 
-После установки заходим в adminer и убеждаемся, что база создана:
+After installation, go to adminer and make sure that the database has been created.:
 
-![настройка adminer](media/bonus_part/step_17.png)
+![adminer setup](media/bonus_part/step_17.png)
 
-Теперь мы знаем, когда именно создаётся база wp. Теперь смело подключаем плагин для redis, настраиваем тему и оформляем свой сайт как душе угодно - больше мы не будем его ронять.
+Now we know exactly when the wp database is created. Now we can safely connect the plug-in for redis, customize the theme and design our website as your heart desires - we will not drop it anymore.
 
-Так же можно поэкспериментировать с базой, поменять конфигурацию, сломать сайт и развернуть его снова. Docker-контейнеры позволяют нам проделывать это снова и снова.
+You can also experiment with the database, change the configuration, break the site and deploy it again. Docker containers allow us to do this over and over again.
