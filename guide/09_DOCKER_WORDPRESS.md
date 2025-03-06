@@ -41,102 +41,57 @@ RUN apk update && apk upgrade && apk add --no-cache \
     php${PHP_VERSION}-mysqli
 ```
 
-Now let's turn to [wordpress documentation](https://make.wordpress.org/hosting/handbook/server-environment / "official wordpress documentation") and let's see what else we need.
+Now let's check the [wordpress documentation](https://make.wordpress.org/hosting/handbook/server-environment / "official wordpress documentation") and let's see what more packages we may need to install for Wordpress.
 
-For the full operation of our wordpress, we will have to download the required modules, omitting caching modules and additional ones. For the bonus part, we will also install the redis module. We will also download the wget package needed to download wordpress itself, and the unzip package to unzip the archive with the downloaded wordpress.
+As you can see, for the full operation of our wordpress, we will have to download the required modules, omitting caching modules and additional ones. For the bonus part, we will also install the redis module -if not sure about doing the bonus part yet, you can install it aynway, it will do no harm-. We will also download the wget package needed to download wordpress itself, and the unzip package to unzip the archive with the downloaded wordpress.
+
+Lastly, we will clean up the cache of all installed module, just to make our image as light as possible.
+
+> All this takes place in a single command line, using `RUN`. Why? Well, it would be more readable to write many `RUN` lines in our Dockerfile -and the final result will be the same-, but if you remember what we explain before, each command of Dockerfile adds a new layer to the image, then, the more layers, the bigger our image gets. Yes, the difference may be just some MBs, but it is a good practice keeping the image as lighter as possible, especially when building bigger projects.
+
+This would be our Dockerfile so far:
 
 ```
-FROM alpine:3.16
-ARG PHP_VERSION=8 \
-    DB_NAME \
-    DB_USER \
-    DB_PASS
+FROM alpine:3.18
+
+ARG PHP_VERSION=82
+ARG DB_NAME
+ARG DB_USER
+ARG DB_PASS
+ARG DOMAIN_NAME
+ARG WP_USER
+ARG WP_PASS
+
 RUN apk update && apk upgrade && apk add --no-cache \
-    php${PHP_VERSION} \
-    php${PHP_VERSION}-fpm \
-    php${PHP_VERSION}-mysqli \
-    php${PHP_VERSION}-json \
-    php${PHP_VERSION}-curl \
-    php${PHP_VERSION}-dom \
-    php${PHP_VERSION}-exif \
-    php${PHP_VERSION}-fileinfo \
-    php${PHP_VERSION}-mbstring \
-    php${PHP_VERSION}-openssl \
-    php${PHP_VERSION}-xml \
-    php${PHP_VERSION}-zip \
-    php${PHP_VERSION}-redis \
-    wget \
-    unzip
+    php${PHP_VERSION} php${PHP_VERSION}-fpm php${PHP_VERSION}-phar \
+    php${PHP_VERSION}-mysqli php${PHP_VERSION}-json \
+    php${PHP_VERSION}-curl php${PHP_VERSION}-dom php${PHP_VERSION}-exif \
+    php${PHP_VERSION}-fileinfo php${PHP_VERSION}-mbstring \
+    php${PHP_VERSION}-openssl php${PHP_VERSION}-xml php${PHP_VERSION}-zip \
+    php${PHP_VERSION}-redis wget unzip && apk del --no-cache && rm -rf /var/cache/apk/*
 ```
 
-Next, we'll fix the config we need. www.conf so that our fastcgi listens to all connections on port 9000 (the path /etc/php8/php-fpm.d/ depends on the installed php version!):
+The next step is to modify wordpress configuration as we need. We will edit www.conf file so our fastcgi listens to all connections on port 9000.
+
+The principle is the same as in the previous guide, we will use the `sed` command to change some specific lines of the config default file.
+
+> **Path /etc/php8/php-fpm.d/ depends on the installed php version!! You can use a variable PHP_VERSION or make sure of the path and specify it**
 
 ```
-FROM alpine:3.16
-ARG PHP_VERSION=8 \
-    DB_NAME \
-    DB_USER \
-    DB_PASS
-RUN apk update && apk upgrade && apk add --no-cache \
-    php${PHP_VERSION} \
-    php${PHP_VERSION}-fpm \
-    php${PHP_VERSION}-mysqli \
-    php${PHP_VERSION}-json \
-    php${PHP_VERSION}-curl \
-    php${PHP_VERSION}-dom \
-    php${PHP_VERSION}-exif \
-    php${PHP_VERSION}-fileinfo \
-    php${PHP_VERSION}-mbstring \
-    php${PHP_VERSION}-openssl \
-    php${PHP_VERSION}-xml \
-    php${PHP_VERSION}-zip \
-    php${PHP_VERSION}-redis \
-    wget \
-    unzip \
-    sed -i "s|listen = 127.0.0.1:9000|listen = 9000|g" \
-    /etc/php8/php-fpm.d/www.conf \
-    sed -i "s|;listen.owner = nobody|listen.owner = nobody|g" \
-    /etc/php8/php-fpm.d/www.conf \
-    sed -i "s|;listen.group = nobody|listen.group = nobody|g" \
-    /etc/php8/php-fpm.d/www.conf \
-    && rm -f /var/cache/apk/*
+RUN sed -i "s|listen = 127.0.0.1:9000|listen = 9000|g" /etc/php${PHP_VERSION}/php-fpm.d/www.conf && \
+    sed -i "s|;listen.owner = nobody|listen.owner = nobody|g" /etc/php${PHP_VERSION}/php-fpm.d/www.conf && \
+    sed -i "s|;listen.group = nobody|listen.group = nobody|ig" /etc/php${PHP_VERSION}/php-fpm.d/www.conf
 ```
 
-The principle is the same as in the previous guide. We change three lines of the sed config.
+Next, we need to download wordpress and unzip it along the path /var/www/. For convenience, we will make this a working path with the `WORKDIR` dockerfile commmand.
 
-With the last command, we clear the cache of installed modules.
+After assigning a working directory, we downloaded the latest version of wordpress with wget, unzipped it, and deleted all the source files.
 
-Next, we need to download wordpress and unzip it along the path /var/www/. For convenience, we will make this a working path with the WORKDIR team.:
+After downloading wordpress, we will copy and execute our configuration file, which we will create in the fourth step. After completing it, we will force it to self-file using rm. Well, we will give all users the rights to the wp-conten folder so that our CMS can download themes, plugins, save images and other files.
+
+Finally, expose the port and set CMD to run our installed php-fpm **(attention! the version must match the installed one!)**
 
 ```
-FROM alpine:3.16
-ARG PHP_VERSION=8 \
-    DB_NAME \
-    DB_USER \
-    DB_PASS
-RUN apk update && apk upgrade && apk add --no-cache \
-    php${PHP_VERSION} \
-    php${PHP_VERSION}-fpm \
-    php${PHP_VERSION}-mysqli \
-    php${PHP_VERSION}-json \
-    php${PHP_VERSION}-curl \
-    php${PHP_VERSION}-dom \
-    php${PHP_VERSION}-exif \
-    php${PHP_VERSION}-fileinfo \
-    php${PHP_VERSION}-mbstring \
-    php${PHP_VERSION}-openssl \
-    php${PHP_VERSION}-xml \
-    php${PHP_VERSION}-zip \
-    php${PHP_VERSION}-redis \
-    wget \
-    unzip && \
-    sed -i "s|listen = 127.0.0.1:9000|listen = 9000|g" \
-      /etc/php8/php-fpm.d/www.conf && \
-    sed -i "s|;listen.owner = nobody|listen.owner = nobody|g" \
-      /etc/php8/php-fpm.d/www.conf && \
-    sed -i "s|;listen.group = nobody|listen.group = nobody|g" \
-      /etc/php8/php-fpm.d/www.conf && \
-    rm -f /var/cache/apk/*
 WORKDIR /var/www
 RUN wget https://wordpress.org/latest.zip && \
     unzip latest.zip && \
@@ -147,11 +102,6 @@ RUN sh wp-config-create.sh && rm wp-config-create.sh && \
     chmod -R 0777 wp-content/
 CMD ["/usr/sbin/php-fpm8", "-F"]
 ```
-After assigning a working directory, we downloaded the latest version of wordpress with wget, unzipped it, and deleted all the source files.
-
-After downloading wordpress, we will copy and execute our configuration file, which we will create in the fourth step. After completing it, we will force it to self-file using rm. Well, we will give all users the rights to the wp-conten folder so that our CMS can download themes, plugins, save images and other files.
-
-CMD also runs our installed php-fpm (attention: the version must match the installed one!)
 
 ## Step 2. Configuration of docker-compose
 
