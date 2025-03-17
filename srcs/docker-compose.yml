@@ -33,5 +33,14 @@ services:
       - db-volume:/var/lib/mysql
     restart: on-failure
 
+  wordpress:
+    build:
+      context: ./requirements/wordpress
+      dockerfile: Dockerfile
+    container_name: wordpress
+    depends_on:
+      - mariadb
+    restart: on-failure
+
 volumes:
   db-volume:

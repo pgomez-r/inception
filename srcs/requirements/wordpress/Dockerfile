@@ -53,4 +53,4 @@ RUN sh wp-config-create.sh && rm wp-config-create.sh && \
 EXPOSE 9000
 
 # Start php-fpm service in the foreground
-CMD ["sh", "-c", "/usr/sbin/php-fpm${PHP_VERSION} -F"]
+CMD ["sh", "-c", "/usr/sbin/php-fpm82 -F"]

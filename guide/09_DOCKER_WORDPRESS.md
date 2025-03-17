@@ -41,9 +41,17 @@ RUN apk update && apk upgrade && apk add --no-cache \
     php${PHP_VERSION}-mysqli
 ```
 
-Now let's check the [wordpress documentation](https://make.wordpress.org/hosting/handbook/server-environment / "official wordpress documentation") and let's see what more packages we may need to install for Wordpress.
+Now let's check the wordpress documentation at the server environmnet section (https://make.wordpress.org/hosting/handbook/server-environment/) so we can see what packages we may need to install for Wordpress to work correctly, which would be:
 
-As you can see, for the full operation of our wordpress, we will have to download the required modules, omitting caching modules and additional ones. For the bonus part, we will also install the redis module -if not sure about doing the bonus part yet, you can install it aynway, it will do no harm-. We will also download the wget package needed to download wordpress itself, and the unzip package to unzip the archive with the downloaded wordpress.
+- A web server; which we already have (nginx)
+
+- PhP
+
+- PhP extensions recommended, such as **curl, openssl, redis**...
+
+- A database such as MariaDB -also, we already have that-.
+
+If you read the full documentation page, you will notice that many php extensions packages are recommended; we are going to install only some of them. For the bonus part, we will also install the redis module -if not sure about doing the bonus part yet, you can install it aynway, it will do no harm-. We will also download the wget package needed to download wordpress itself, and the unzip package to unzip the archive with the downloaded wordpress.
 
 Lastly, we will clean up the cache of all installed module, just to make our image as light as possible.
 
@@ -73,6 +81,8 @@ RUN apk update && apk upgrade && apk add --no-cache \
 
 The next step is to modify wordpress configuration as we need. We will edit www.conf file so our fastcgi listens to all connections on port 9000.
 
+> TODO: check if need to ufw enable + vbox portforwarding?
+
 The principle is the same as in the previous guide, we will use the `sed` command to change some specific lines of the config default file.
 
 > **Path /etc/php8/php-fpm.d/ depends on the installed php version!! You can use a variable PHP_VERSION or make sure of the path and specify it**
@@ -85,9 +95,9 @@ RUN sed -i "s|listen = 127.0.0.1:9000|listen = 9000|g" /etc/php${PHP_VERSION}/ph
 
 Next, we need to download wordpress and unzip it along the path /var/www/. For convenience, we will make this a working path with the `WORKDIR` dockerfile commmand.
 
-After assigning a working directory, we downloaded the latest version of wordpress with wget, unzipped it, and deleted all the source files.
+After assigning a working directory, we download the latest version of wordpress with wget, unzipp it, and delete all the source files.
 
-After downloading wordpress, we will copy and execute our configuration file, which we will create in the fourth step. After completing it, we will force it to self-file using rm. Well, we will give all users the rights to the wp-conten folder so that our CMS can download themes, plugins, save images and other files.
+After downloading wordpress, we will copy and execute our configuration file, which we will create in the fourth step. Then we will delete this script and give full permissions to the wp-conten folder so that our CMS can download themes, plugins, save images and other files.
 
 Finally, expose the port and set CMD to run our installed php-fpm **(attention! the version must match the installed one!)**
 
@@ -103,23 +113,79 @@ RUN sh wp-config-create.sh && rm wp-config-create.sh && \
 CMD ["/usr/sbin/php-fpm8", "-F"]
 ```
 
+### Full Dockerfile example commented
+```
+# OS base image
+FROM alpine:3.18
+
+# Arguments needed by the image building process
+ARG PHP_VERSION=82
+ARG DB_NAME
+ARG DB_USER
+ARG DB_PASS
+ARG DOMAIN_NAME
+ARG WP_USER
+ARG WP_PASS
+
+# Install php and its main packages
+# Install wget and unzip
+# Clean cache after installation
+# All this is a single line commmand, you can display as you prefer for better readability
+RUN apk update && apk upgrade && apk add --no-cache \
+    php${PHP_VERSION} php${PHP_VERSION}-fpm php${PHP_VERSION}-phar \
+    php${PHP_VERSION}-mysqli php${PHP_VERSION}-json \
+    php${PHP_VERSION}-curl php${PHP_VERSION}-dom php${PHP_VERSION}-exif \
+    php${PHP_VERSION}-fileinfo php${PHP_VERSION}-mbstring \
+    php${PHP_VERSION}-openssl php${PHP_VERSION}-xml php${PHP_VERSION}-zip \
+    php${PHP_VERSION}-redis wget unzip && apk del --no-cache && rm -rf /var/cache/apk/*
+
+# Modify PHP-FPM configuration
+RUN sed -i "s|listen = 127.0.0.1:9000|listen = 9000|g" /etc/php${PHP_VERSION}/php-fpm.d/www.conf && \
+    sed -i "s|;listen.owner = nobody|listen.owner = nobody|g" /etc/php${PHP_VERSION}/php-fpm.d/www.conf && \
+    sed -i "s|;listen.group = nobody|listen.group = nobody|ig" /etc/php${PHP_VERSION}/php-fpm.d/www.conf
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Download, unzip wordpress latest version (check on website and change according)
+# Move wordpress folder to working directry (/var/www/htm)
+# Remove the .zip file that you don't need any more, keeping the image lighter
+RUN wget -O wordpress.zip https://wordpress.org/wordpress-6.5.2.zip && \
+    unzip wordpress.zip && \
+    cp -rf wordpress/* . && \
+    rm -rf wordpress wordpress.zip
+
+# Copy script from project folder to image, which will be used to generate the wp-config.php
+COPY ./requirements/wordpress/conf/wp-config-create.sh .
+
+# Execute script, remove it after and give all persmissions to wp-content folder
+RUN sh wp-config-create.sh && rm wp-config-create.sh && \
+    chmod -R 0777 wp-content/
+
+# OPTIONAL - Another script to create users or perform additional setup tasks (e.g. creating an admin user for WordPress)
+# COPY ./requirements/wordpress/conf/wp-config-create.sh .
+# RUN sh wp-config-create.sh && rm wp-config-create.sh && \
+#     chmod -R 0777 wp-content/
+
+EXPOSE 9000
+
+# Start php-fpm service in the foreground
+CMD ["sh", "-c", "/usr/sbin/php-fpm82 -F"]
+```
+
 ## Step 2. Configuration of docker-compose
 
-Now let's add a wordpress section to our docker-compose.
-
-``vim docker-compose.yml``
-
-To begin with, we write the following:
+Now let's add a wordpress section to our docker-compose following the same pattern as we have done before.
 
 ```
   wordpress:
     build:
-      context: .
-      dockerfile: requirements/wordpress/Dockerfile
+      context: ./requirements/wordpress
+      dockerfile: Dockerfile
     container_name: wordpress
     depends_on:
       - mariadb
-    restart: always
+    restart: on-failure
 ```
 
 The depends_on directive means that wordpress depends on mariadb and will not start until the database container is assembled. nginx will be the most "nimble" of our containers - due to its low weight, it will assemble and launch first. But the database and CMS are assembled at about the same time, and in order to prevent wordpress from starting to be installed on a database that has not yet been deployed, you will need to specify this dependency.

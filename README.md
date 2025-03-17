@@ -14,11 +14,11 @@ Brief info about the stages of the project:
 - [x] Port forwarding to the host - [guide 02](https://github.com/pgomez-r/inception/tree/main/guide/02_PORTS_FORWARDING.md "Forwarding ports to the host")
 - [x] Saving snapshots to the cloud - [guide 03](https://github.com/pgomez-r/inception/tree/main/guide/03_CLOUD_STORAGE.md "Saving snapshots to the cloud")
 - [x] Pre-setup - [guide 04](https://github.com/pgomez-r/inception/tree/main/guide/04_FIRST_SETTINGS.md "Pre-setup")
-- [ ] Certificate Installation - [guide 05](https://github.com/pgomez-r/inception/tree/main/guide/05_INSTALL_CERTIFICATE.md "Installing the certificate")
-- [ ] Creating a Makefile - [guide 06](https://github.com/pgomez-r/inception/tree/main/guide/06_MAKEFILE_CREATION.md "Creating a Makefile")
-- [ ] nginx Deployment - [guide 07](https://github.com/pgomez-r/inception/tree/main/guide/07_DOCKER_NGINX.md "nginx Deployment")
-- [ ] mariadb Deployment - [guide 08](https://github.com/pgomez-r/inception/tree/main/guide/08_DOCKER_MARIADB.md "mariadb Deployment")
-- [ ] wordpress Deployment - [guide 09](https://github.com/pgomez-r/inception/tree/main/guide/09_DOCKER_WORDPRESS.md "Wordpress Deployment")
+- [x] Certificate Installation - [guide 05](https://github.com/pgomez-r/inception/tree/main/guide/05_INSTALL_CERTIFICATE.md "Installing the certificate")
+- [x] Creating a Makefile - [guide 06](https://github.com/pgomez-r/inception/tree/main/guide/06_MAKEFILE_CREATION.md "Creating a Makefile")
+- [x] NGINX service - [guide 07](https://github.com/pgomez-r/inception/tree/main/guide/07_DOCKER_NGINX.md "nginx Deployment")
+- [x] MariaDB service - [guide 08](https://github.com/pgomez-r/inception/tree/main/guide/08_DOCKER_MARIADB.md "mariadb Deployment")
+- [x] Wordpress service - [guide 09](https://github.com/pgomez-r/inception/tree/main/guide/09_DOCKER_WORDPRESS.md "Wordpress Deployment")
 
 ***BONUS PART***
 
