@@ -19,13 +19,14 @@ Brief info about the stages of the project:
 - [x] NGINX service - [guide 07](https://github.com/pgomez-r/inception/tree/main/guide/07_DOCKER_NGINX.md "nginx Deployment")
 - [x] MariaDB service - [guide 08](https://github.com/pgomez-r/inception/tree/main/guide/08_DOCKER_MARIADB.md "mariadb Deployment")
 - [x] Wordpress service - [guide 09](https://github.com/pgomez-r/inception/tree/main/guide/09_DOCKER_WORDPRESS.md "Wordpress Deployment")
+- [ ] Connect all services together - [guide 10](https://github.com/pgomez-r/inception/tree/main/guide/10_LINK_SERVICES.md "Link Services")
 
 ***BONUS PART***
 
-- [ ] Redis Installation - [guide 10](https://github.com/pgomez-r/inception/tree/main/guide/10_WORDPRESS_REDIS.md "Installing Redis")
-- [ ] Installing vsftpd - [guide 11](https://github.com/pgomez-r/inception/tree/main/guide/11_VSFTPD_SERVER.md "Installing vsftpd")
-- [ ] Installing Adminler - [guide 12](https://github.com/pgomez-r/inception/tree/main/guide/12_INSTALL_ADMINER.md "Install Adminler")
-- [ ] Install portainer - guide [guide 13](https://github.com/pgomez-r/inception/tree/main/guide/13_PORTAINER_INSTALL.md "Installing the portainer")
+- [ ] Redis Installation - [guide 11](https://github.com/pgomez-r/inception/tree/main/guide/11_WORDPRESS_REDIS.md "Installing Redis")
+- [ ] Installing vsftpd - [guide 12](https://github.com/pgomez-r/inception/tree/main/guide/12_VSFTPD_SERVER.md "Installing vsftpd")
+- [ ] Installing Adminler - [guide 13](https://github.com/pgomez-r/inception/tree/main/guide/13_INSTALL_ADMINER.md "Install Adminler")
+- [ ] Install portainer - guide [guide 14](https://github.com/pgomez-r/inception/tree/main/guide/14_PORTAINER_INSTALL.md "Installing the portainer")
 
 For a deeper understanding of Docker:
 https://ivan-shamaev.ru/docker-compose-tutorial-container-image-install/

@@ -1,7 +1,6 @@
 # Creating a Makefile
 
 
-
 ## Step 1. Find out the name of our container
 
 Being in the project folder, we will print our docker-compose with a cat.:
