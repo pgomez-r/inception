@@ -175,7 +175,7 @@ CMD ["sh", "-c", "/usr/sbin/php-fpm82 -F"]
 
 ## Step 2. Configuration of docker-compose
 
-Now let's add a wordpress section to our docker-compose following the same pattern as we have done before.
+Now let's add a wordpress service to our docker-compose following the same basic pattern to start, as we have done before:
 
 ```
   wordpress:
@@ -184,38 +184,33 @@ Now let's add a wordpress section to our docker-compose following the same patte
       dockerfile: Dockerfile
     container_name: wordpress
     depends_on:
-      - mariadb
+      mariadb:
+       condition: service_healthy
     restart: on-failure
 ```
 
-The depends_on directive means that wordpress depends on mariadb and will not start until the database container is assembled. nginx will be the most "nimble" of our containers - due to its low weight, it will assemble and launch first. But the database and CMS are assembled at about the same time, and in order to prevent wordpress from starting to be installed on a database that has not yet been deployed, you will need to specify this dependency.
+The `depends_on` directive means that wordpress depends on mariadb, and will not start until the database container is assembled. We need to ensure this because wordpress will need the database to be fully created in order to work correctly.
 
-Next, we will transfer to the container the very "secrets" stored in the .env file.:
+Even using `depends_on`, both services MariaDB and WP may be built and assembled at about the same time, so in order to make really sure this will not happen, adding the condition `service_healthy` it is also a good practice.
 
-```
-      args:
-        DB_NAME: ${DB_NAME}
-        DB_USER: ${DB_USER}
-        DB_PASS: ${DB_PASS}
-```
+> *Also, it helps to organize the docker-compose file in the desired order of building: mariadb(no dependency) - wordpress(depends on mariadb) - nginx(depends on wordpress)*
 
-We put these arguments in the build section.:
+Next, we will transfer to the container the env args
 
 ```
   wordpress:
     build:
-      context: .
-      dockerfile: requirements/wordpress/Dockerfile
+      context: ./requirements/wordpress
+      dockerfile: Dockerfile
       args:
         DB_NAME: ${DB_NAME}
         DB_USER: ${DB_USER}
         DB_PASS: ${DB_PASS}
     container_name: wordpress
     depends_on:
-      - mariadb
-    restart: always
-    volumes:
-      - wp-volume:/var/www/
+      mariadb:
+       condition: service_healthy
+    restart: on-failure
 ```
 
 ## Step 3. Create partitions and Network
