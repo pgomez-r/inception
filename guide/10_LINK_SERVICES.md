@@ -1,8 +1,10 @@
 # Link all services together - Volumes and Network
 
-At this point we have each service working correctly by itself, but not quite finished yet, as some of them need to be connected to other. So, to finish the work, let's modify our docker-compose.yml to set this connections right. Also, we could upgrade our Makefile again after all the work is done, adding some useful rules.
+At this point we have each service working correctly by itself, but we are not finished quite yet, as some of them need to be connected to others. So, to finish the work, let's modify our docker-compose.yml to set this connections right.
 
-## Step 6. Update nginx configuration to work with WordPress
+Also, we will upgrade our Makefile again after all the work is done, adding some useful steps and rules.
+
+## Step 1. Update nginx configuration to work with WordPress
 
 We need to change the configuration of nginx so that it processes only php files. To do this, remove everything from the config index.html .
 
@@ -148,7 +150,96 @@ networks:
         driver: bridge
 ```
 
-# Step 3. Checking the configuration operation
+## Step 3. Changing the Makefile
+
+### Create a script that generates the data folder
+
+When running a Makefile, we need to check for the existence of the directories we need, and if they don't exist, then create them. A simple script will do this. Let's put it, for example, in the wordpress/tools folder:
+
+```
+mkdir requirements/wordpress/tools
+
+vim requirements/wordpress/tools/make_dir.sh
+```
+
+And add this code:
+
+```
+#!/bin/bash
+if [ ! -d "/home/${USER}/data" ]; then
+        mkdir ~/data
+        mkdir ~/data/mariadb
+        mkdir ~/data/wordpress
+fi
+```
+
+This code checks for the data folder in the user's folder, and if it is missing, creates all the necessary folder configurations.
+
+Remember to give the script execution rights:
+
+``chmod +x requirements/wordpress/tools/make_dir.sh``
+
+Let's execute it:
+
+``requirements/wordpress/tools/make_dir.sh``
+
+And now check the result:
+
+``ls ~/data/``
+
+We should see two of our folders - wordpress and mariadb.
+
+Below I will add this script to the Makefile and it will work as it should.
+
+Also, do not forget to copy our Makefile. It will have to be changed a bit, because docker-compose is on the srcs path. This imposes certain restrictions on us, because by making a make on the directory above, we will not pick up our secrets (the system will search.env in the same directory where the Makefile is located). Therefore, we indicate to our docker-compose not only the path to ./srcs, but also the path to .env. This is done by specifying the --env-file flag.:
+
+```
+name = inception
+all:
+	@printf "Launch configuration ${name}...\n"
+  @bash srcs/requirements/wordpress/tools/make_dir.sh
+	@docker-compose -f ./srcs/docker-compose.yml --env-file srcs/.env up -d
+
+build:
+	@printf "Building configuration ${name}...\n"
+  @bash srcs/requirements/wordpress/tools/make_dir.sh
+	@docker-compose -f ./srcs/docker-compose.yml --env-file srcs/.env up -d --build
+
+down:
+	@printf "Stopping configuration ${name}...\n"
+	@docker-compose -f ./srcs/docker-compose.yml --env-file srcs/.env down
+
+re: down
+	@printf "Rebuild configuration ${name}...\n"
+	@docker-compose -f ./srcs/docker-compose.yml --env-file srcs/.env up -d --build
+
+clean: down
+	@printf "Cleaning configuration ${name}...\n"
+	@docker system prune -a
+	@sudo rm -rf ~/data/wordpress/*
+	@sudo rm -rf ~/data/mariadb/*
+
+fclean:
+	@printf "Total clean of all configurations docker\n"
+	@docker stop $$(docker ps -qa)
+	@docker system prune --all --force --volumes
+	@docker network prune --force
+	@docker volume prune --force
+	@sudo rm -rf ~/data/wordpress/*
+	@sudo rm -rf ~/data/mariadb/*
+
+.PHONY	: all build down re clean fclean
+```
+
+I advise you to do a make clean before saving it to the cloud.
+
+***
+
+The project is deployed `make build", the stop is `make down", the start after the stop is `make`, etc`
+
+This completes the main part of the project. After configuring wordpress, the project can be submitted. You also need to save all the sources to the repository and be able to correctly deploy your project from them.
+
+# Step 4. Checking if all the configuration is working properly
 
 So, after we run `docker-compose u --build` in our `~/project/srcs" directory, we will observe the configuration build for a while. And finally, we will find that everything is assembled and working.:
 
@@ -211,53 +302,3 @@ zlib
 ... and voila! - the settings panel opens in front of us:
 
 ![настройка wordpress](media/docker_wordpress/welcome.png)
-
-## Step 9. Changing the Makefile
-
-Also, do not forget to copy our Makefile. It will have to be changed a bit, because docker-compose is on the srcs path. This imposes certain restrictions on us, because by making a make on the directory above, we will not pick up our secrets (the system will search.env in the same directory where the Makefile is located). Therefore, we indicate to our docker-compose not only the path to ./srcs, but also the path to .env. This is done by specifying the --env-file flag.:
-
-```
-name = inception
-all:
-	@printf "Launch configuration ${name}...\n"
-  @bash srcs/requirements/wordpress/tools/make_dir.sh
-	@docker-compose -f ./srcs/docker-compose.yml --env-file srcs/.env up -d
-
-build:
-	@printf "Building configuration ${name}...\n"
-  @bash srcs/requirements/wordpress/tools/make_dir.sh
-	@docker-compose -f ./srcs/docker-compose.yml --env-file srcs/.env up -d --build
-
-down:
-	@printf "Stopping configuration ${name}...\n"
-	@docker-compose -f ./srcs/docker-compose.yml --env-file srcs/.env down
-
-re: down
-	@printf "Rebuild configuration ${name}...\n"
-	@docker-compose -f ./srcs/docker-compose.yml --env-file srcs/.env up -d --build
-
-clean: down
-	@printf "Cleaning configuration ${name}...\n"
-	@docker system prune -a
-	@sudo rm -rf ~/data/wordpress/*
-	@sudo rm -rf ~/data/mariadb/*
-
-fclean:
-	@printf "Total clean of all configurations docker\n"
-	@docker stop $$(docker ps -qa)
-	@docker system prune --all --force --volumes
-	@docker network prune --force
-	@docker volume prune --force
-	@sudo rm -rf ~/data/wordpress/*
-	@sudo rm -rf ~/data/mariadb/*
-
-.PHONY	: all build down re clean fclean
-```
-
-I advise you to do a make clean before saving it to the cloud.
-
-***
-
-The project is deployed `make build", the stop is `make down", the start after the stop is `make`, etc`
-
-This completes the main part of the project. After configuring wordpress, the project can be submitted. You also need to save all the sources to the repository and be able to correctly deploy your project from them.

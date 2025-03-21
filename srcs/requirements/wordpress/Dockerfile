@@ -39,16 +39,15 @@ RUN wget -O wordpress.zip https://wordpress.org/wordpress-6.5.2.zip && \
     rm -rf wordpress wordpress.zip
 
 # Copy script from project folder to image, which will be used to generate the wp-config.php
-COPY ./requirements/wordpress/conf/wp-config-create.sh .
+COPY ./requirements/wordpress/conf/wp-config.sh .
 
 # Execute script, remove it after and give all persmissions to wp-content folder
-RUN sh wp-config-create.sh && rm wp-config-create.sh && \
+RUN sh wp-config.sh && rm wp-config.sh && \
     chmod -R 0777 wp-content/
 
-# OPTIONAL - Another script to create users or perform additional setup tasks (e.g. creating an admin user for WordPress)
-# COPY ./requirements/wordpress/conf/wp-config-create.sh .
-# RUN sh wp-config-create.sh && rm wp-config-create.sh && \
-#     chmod -R 0777 wp-content/
+# Script to automate the installation of WordPress and setup of necessary services
+COPY ./requirements/wordpress/conf/wp-setup.sh .
+RUN sh wp-setup.sh && rm wp-setup.sh
 
 EXPOSE 9000
 

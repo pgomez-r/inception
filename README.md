@@ -1,9 +1,12 @@
 # Inception Guide
 
-*(!) Work in progress (!)*
-This is an ongoing work of translation of the guide by codesshaman at https://github.com/codesshaman/inception/tree/main?tab=readme-ov-file. 
+This guide has been made using as its base a translation of the guide by codesshaman at https://github.com/codesshaman/inception/tree/main?tab=readme-ov-file. 
 
-This guide is divided into several steps ordered as they should be learnt (or studied, you could say) and done.
+My first intention was just to translate, follow and revise the guide, but as I was developing the project -and finding challanges along with it, as usual- I chose to do several things differently, so this has ended up being an adaptation into my own guide, more than just a translation.
+
+However, I am aware that it is far from being perfect. I have tried to keep it updated with all changes that I needed to do in my code simultaneously as I was developing the project, still there could be some mistakes or missing points. Sorry about that and also about some spelling or grammar mistakes **-is there any extension in VSCode to check those?...-.**
+
+For any suggestions or help, I'd be happy to hear!
 
 ## Project steps
 
@@ -22,7 +25,7 @@ Brief info about the stages of the project:
 - [ ] Connect all services together - [guide 10](https://github.com/pgomez-r/inception/tree/main/guide/10_LINK_SERVICES.md "Link Services")
 
 ***BONUS PART***
-
+**(!) This is just an automatic translation of the original guide - Has not been revised or improved in any way (!)**
 - [ ] Redis Installation - [guide 11](https://github.com/pgomez-r/inception/tree/main/guide/11_WORDPRESS_REDIS.md "Installing Redis")
 - [ ] Installing vsftpd - [guide 12](https://github.com/pgomez-r/inception/tree/main/guide/12_VSFTPD_SERVER.md "Installing vsftpd")
 - [ ] Installing Adminler - [guide 13](https://github.com/pgomez-r/inception/tree/main/guide/13_INSTALL_ADMINER.md "Install Adminler")

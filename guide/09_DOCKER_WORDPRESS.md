@@ -24,7 +24,13 @@ To get all done, we will need to perform the following steps:
 
 First, check the latest version of php in the official site https://www.php.net to specify it in Dockerfile `FROM`.
 
-Also, we will take three arguments `ARG` from our .env file: the name of the database, the username and password of the user.
+Then, we will pass several arguments `ARG` from our .env file to the Dockerfile: the version of php -to make easier to install all extensions of the same version-, the database info -name, user and pass-, the domain name for our website and another user for wordpress, aside from the 'owner' -admin- of the site, which will be the same as the database owner.
+
+All these variables will be needed during the building of the image, specially for the scripts that will expand them to set the configurations and setup for wordpress.
+
+> Remember to add whatever of these variables to `inception/src/.env` if you do not have them yet, for example the second wordpress user:
+``WP_USER=rick
+WP_PASS=1234``
 
 Then, we install the basic php components: php itself, php-fpm for interacting with nginx and php-mysqli for interacting with mariadb.
 
@@ -34,6 +40,9 @@ ARG PHP_VERSION=82
 ARG DB_NAME
 ARG DB_USER
 ARG DB_PASS
+ARG DOMAIN_NAME
+ARG WP_USER
+ARG WP_PASS
 
 RUN apk update && apk upgrade && apk add --no-cache \
     php${PHP_VERSION} \
@@ -97,7 +106,11 @@ Next, we need to download wordpress and unzip it along the path /var/www/. For c
 
 After assigning a working directory, we download the latest version of wordpress with wget, unzipp it, and delete all the source files.
 
-After downloading wordpress, we will copy and execute our configuration file, which we will create in the fourth step. Then we will delete this script and give full permissions to the wp-conten folder so that our CMS can download themes, plugins, save images and other files.
+Next, we will copy and execute our configuration script, which will create the file `wp-config.php` and fill it with our desired cofiguration, as well as getting the information about or mariadb database. We will delete this script once finished and give full permissions to the wp-conten folder so that our CMS can download themes, plugins, save images and other files.
+
+Then, we do the same with another script, this one will automate the installation of WordPress and will setup the necessary services.
+
+> We will see both scripts in more detail later in this same guide section.
 
 Finally, expose the port and set CMD to run our installed php-fpm **(attention! the version must match the installed one!)**
 
@@ -162,7 +175,7 @@ COPY ./requirements/wordpress/conf/wp-config-create.sh .
 RUN sh wp-config-create.sh && rm wp-config-create.sh && \
     chmod -R 0777 wp-content/
 
-# OPTIONAL - Another script to create users or perform additional setup tasks (e.g. creating an admin user for WordPress)
+# Script to automate the installation of WordPress and setup of necessary services
 # COPY ./requirements/wordpress/conf/wp-config-create.sh .
 # RUN sh wp-config-create.sh && rm wp-config-create.sh && \
 #     chmod -R 0777 wp-content/
@@ -195,7 +208,7 @@ Even using `depends_on`, both services MariaDB and WP may be built and assembled
 
 > *Also, it helps to organize the docker-compose file in the desired order of building: mariadb(no dependency) - wordpress(depends on mariadb) - nginx(depends on wordpress)*
 
-Next, we will transfer to the container the env args
+Next, we will pass the evironment variables to the container as arguments:
 
 ```
   wordpress:
@@ -213,107 +226,131 @@ Next, we will transfer to the container the env args
     restart: on-failure
 ```
 
-## Step 3. Create a script that generates the data folder
+## Step 3. Worpdress pre-configuration script
 
-When running a Makefile, we need to check for the existence of the directories we need, and if they don't exist, then create them. A simple script will do this. Let's put it, for example, in the wordpress/tools folder:
+We will need to copy our own configuration file to the wordpress folder, which will also connect to the database. We will do so by creating a script that will insert the lines into the desired file.
 
-```
-mkdir requirements/wordpress/tools
+``
+mkdir inception/srcs/requirements/wordpress/conf
 
-vim requirements/wordpress/tools/make_dir.sh
-```
+vim inception/srcs/requirements/wordpress/conf/wp-config.sh
+``
 
-And add this code:
+Basically, what the script needs to do is:
+- Checks if /var/www/wp-config.php exists (in case we already set it, to avoid rewritting it)
+- If not, it creates the file and populates it with the WordPress configuration.
+- It pulls database credentials from environment variables.
+- It sets Redis caching settings - **BONUS**
+- Finally, it includes wp-settings.php to complete the WordPress setup.
 
-```
-#!/bin/bash
-if [ ! -d "/home/${USER}/data" ]; then
-        mkdir ~/data
-        mkdir ~/data/mariadb
-        mkdir ~/data/wordpress
-fi
-```
-
-This code checks for the data folder in the user's folder, and if it is missing, creates all the necessary folder configurations.
-
-Remember to give the script execution rights:
-
-``chmod +x requirements/wordpress/tools/make_dir.sh``
-
-Let's execute it:
-
-``requirements/wordpress/tools/make_dir.sh``
-
-And now check the result:
-
-``ls ~/data/``
-
-We should see two of our folders - wordpress and mariadb.
-
-Below I will add this script to the Makefile and it will work as it should.
-
-## Step 4. Creating the worpdress configuration file
-
-We will need to copy the configuration file to the wordpress folder, which will connect us to the database container.
-
-Let's create this file in the conf folder:
-
-``vim requirements/wordpress/conf/wp-config-create.sh``
-
-Let's insert the following contents into it:
+Here is an example of a script to this, with explaining comments:
 
 ```
-#!bin/sh
+#!/bin/sh
+
+# Check if the WordPress configuration file does not exist
 if [ ! -f "/var/www/wp-config.php" ]; then
+
+# Create the wp-config.php file using a here document
 cat << EOF > /var/www/wp-config.php
 <?php
+# Define the database name, using an environment variable
 define( 'DB_NAME', '${DB_NAME}' );
+
+# Define the database user, using an environment variable
 define( 'DB_USER', '${DB_USER}' );
+
+# Define the database password, using an environment variable
 define( 'DB_PASSWORD', '${DB_PASS}' );
+
+# Define the database host (assumed to be a MariaDB instance)
 define( 'DB_HOST', 'mariadb' );
+
+# Define the database character set
 define( 'DB_CHARSET', 'utf8' );
+
+# Define the database collation (empty means default collation is used)
 define( 'DB_COLLATE', '' );
+
+# Set the file system method to direct to avoid FTP prompts
 define('FS_METHOD','direct');
+
+# Set the database table prefix for WordPress
 \$table_prefix = 'wp_';
+
+# Disable WordPress debugging
 define( 'WP_DEBUG', false );
+
+# Set the absolute path to the WordPress directory
 if ( ! defined( 'ABSPATH' ) ) {
-define( 'ABSPATH', __DIR__ . '/' );}
-define( 'WP_REDIS_HOST', 'redis' );
-define( 'WP_REDIS_PORT', 6379 );
-define( 'WP_REDIS_TIMEOUT', 1 );
-define( 'WP_REDIS_READ_TIMEOUT', 1 );
-define( 'WP_REDIS_DATABASE', 0 );
+    define( 'ABSPATH', __DIR__ . '/' );
+}
+
+# Redis caching configuration - BONUS
+define( 'WP_REDIS_HOST', 'redis' );  # Redis server hostname
+define( 'WP_REDIS_PORT', 6379 );     # Redis server port
+define( 'WP_REDIS_TIMEOUT', 1 );    # Connection timeout in seconds
+define( 'WP_REDIS_READ_TIMEOUT', 1 );  # Read timeout in seconds
+define( 'WP_REDIS_DATABASE', 0 );   # Redis database index
+
+# Include WordPress settings and bootstrap the application
 require_once ABSPATH . 'wp-settings.php';
 EOF
+
 fi
 ```
 
-Let's pay attention to \$table_prefix = 'wp_'; So that an empty string is not written to $table_prefix (since we do not have such a variable in bash), we make sure to escape the string with a backslash - "\\".
+> *Let's pay attention to `\$table_prefix = 'wp_';` The backslash - "\\" is used so shell will not interpret `$table_prefix` as a varaible to be expanded -which would result in an empty string-. `$table_prefix` is meant meant for PHP, not the shell*
 
-Some settings related to redis will be useful to us only in the bonus part. They won't bother us with the main one either.
+> Redis related settings will be useful to us *only* in the bonus part. They won't bother us with the main one either.
 
-## Step 5. Setting up wordpress
+## Step 4. WordPress installation and setup script
 
-After we have checked the operation of all the systems, we can start configuring the installed wordpress. To do this, we open our website in the browser of the host machine.:
+If we would only do the pre-configuration of WordPress, using the previous script, our CMS will have the essential data and info to be working properly, but the website itself would not be displayable yet. In that scenario, once the container is built and running, the first time we open our domain in a browser we would be welcomed by WordPress Installation Wizard -the installation page- that would ask us to set some info, such as admin email, site title, etc.
 
-``https://127.0.0.1``
+This is not totally wrong, we could set the page the first time in this manner, but it is forbidden by the subject... So, let's do the same with a script that will be executed in the building of the image itself, which will automate the installation of WordPress and setup of necessary services.
 
-If we want to see our website, do not forget to specify the https protocol.
+The main steps of the script:
+- Check for WP-CLI: The script first checks if WP-CLI (/usr/local/bin/wp) is already installed.
+- Download and Install WP-CLI: If WP-CLI is not found, it downloads and installs it.
+- Install WordPress: It uses WP-CLI to install WordPress, specifying configurations such as the site URL, admin - credentials, and WordPress path.
+- Create a WordPress User: It creates a new user with a specified role and credentials.
 
-We enter the login, password, and website name we need (or save the generated password in a notebook), I wrote down the following:
+Here is an example of a script to this, with explaining comments:
 
-![wordpress setup](media/docker_wordpress/records.png)
+```
+#!/bin/sh
 
-After clicking the "Install Wordpress" button, we will see a window with a message about the successful installation and an offer to log in.:
+# Check if WP-CLI is already installed by verifying the existence of /usr/local/bin/wp
+if [ ! -f "/usr/local/bin/wp" ]; then  # If the file /usr/local/bin/wp does not exist
 
-![wordpress setup](media/docker_wordpress/done.png)
+    # Download the WP-CLI (WordPress Command Line Interface) PHAR file from GitHub and save it to /usr/local/bin/wp
+    wget -O /usr/local/bin/wp https://github.com/wp-cli/builds/raw/gh-pages/phar/wp-cli-release.phar
 
-Click the login button, enter your username and password:
+    # Make the downloaded wp-cli file executable by changing its permissions
+    chmod +x /usr/local/bin/wp
 
-![wordpress setup](media/docker_wordpress/login.png)
+    # Install WordPress using WP-CLI with various configuration options:
+    # - --allow-root allows the root user to run the WP-CLI commands
+    # - --url=$DOMAIN_NAME sets the site URL to the value of the DOMAIN_NAME environment variable
+    # - --title="pgomez-r inception" sets the site title to "pgomez-r inception"
+    # - --admin_user=$DB_USER uses the DB_USER environment variable for the admin username
+    # - --admin_password=$DB_PASS uses the DB_PASS environment variable for the admin password
+    # - --admin_email="yourmail@gmail.com" sets the admin email address
+    # - --path="/var/www/html" specifies the directory where WordPress should be installed (default web directory)
+    wp core install --allow-root --url=$DOMAIN_NAME --title="your_login inception site" --admin_user=$DB_USER --admin_password=$DB_PASS --admin_email="yourmail.11@gmail.com" --path="/var/www/html"
 
-And we get to the start page of our clean wordpress site!
+    # Create a new WordPress user using WP-CLI:
+    # - $WP_USER is the environment variable containing the desired username for the new user
+    # - guest@example.com is the email address for the new user
+    # - --role=author assigns the "author" role to the new user, which allows them to write and publish posts
+    # - --user_pass=$WP_PASS sets the password for the new user (from the WP_PASS environment variable)
+    # - --allow-root allows the root user to run this command
+    wp user create $WP_USER guest@example.com --role=author --user_pass=$WP_PASS --allow-root
 
-![wordpress setup](media/docker_wordpress/startpage.png)
+fi
 
-Congratulations, we have completed the installation and configuration of our wordpress. Now we can roll out a theme that we like on it and get a great local website that will be displayed in the browser!
+```
+
+Congratulations, we have completed the installation and configuration of our wordpress. Now let's move to the last section of the guide about mandatory part, where we will connect all services, volumes and network.
+
