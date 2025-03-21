@@ -62,8 +62,6 @@ Now let's check the wordpress documentation at the server environmnet section (h
 
 If you read the full documentation page, you will notice that many php extensions packages are recommended; we are going to install only some of them. For the bonus part, we will also install the redis module -if not sure about doing the bonus part yet, you can install it aynway, it will do no harm-. We will also download the wget package needed to download wordpress itself, and the unzip package to unzip the archive with the downloaded wordpress.
 
-Lastly, we will clean up the cache of all installed module, just to make our image as light as possible.
-
 > All this takes place in a single command line, using `RUN`. Why? Well, it would be more readable to write many `RUN` lines in our Dockerfile -and the final result will be the same-, but if you remember what we explain before, each command of Dockerfile adds a new layer to the image, then, the more layers, the bigger our image gets. Yes, the difference may be just some MBs, but it is a good practice keeping the image as lighter as possible, especially when building bigger projects.
 
 This would be our Dockerfile so far:
@@ -85,7 +83,7 @@ RUN apk update && apk upgrade && apk add --no-cache \
     php${PHP_VERSION}-curl php${PHP_VERSION}-dom php${PHP_VERSION}-exif \
     php${PHP_VERSION}-fileinfo php${PHP_VERSION}-mbstring \
     php${PHP_VERSION}-openssl php${PHP_VERSION}-xml php${PHP_VERSION}-zip \
-    php${PHP_VERSION}-redis wget unzip && apk del --no-cache && rm -rf /var/cache/apk/*
+    php${PHP_VERSION}-redis wget unzip && rm -rf /var/cache/apk/*
 ```
 
 The next step is to modify wordpress configuration as we need. We will edit www.conf file so our fastcgi listens to all connections on port 9000.
@@ -142,7 +140,6 @@ ARG WP_PASS
 
 # Install php and its main packages
 # Install wget and unzip
-# Clean cache after installation
 # All this is a single line commmand, you can display as you prefer for better readability
 RUN apk update && apk upgrade && apk add --no-cache \
     php${PHP_VERSION} php${PHP_VERSION}-fpm php${PHP_VERSION}-phar \
@@ -150,7 +147,7 @@ RUN apk update && apk upgrade && apk add --no-cache \
     php${PHP_VERSION}-curl php${PHP_VERSION}-dom php${PHP_VERSION}-exif \
     php${PHP_VERSION}-fileinfo php${PHP_VERSION}-mbstring \
     php${PHP_VERSION}-openssl php${PHP_VERSION}-xml php${PHP_VERSION}-zip \
-    php${PHP_VERSION}-redis wget unzip && apk del --no-cache && rm -rf /var/cache/apk/*
+    php${PHP_VERSION}-redis wget unzip && rm -rf /var/cache/apk/*
 
 # Modify PHP-FPM configuration
 RUN sed -i "s|listen = 127.0.0.1:9000|listen = 9000|g" /etc/php${PHP_VERSION}/php-fpm.d/www.conf && \

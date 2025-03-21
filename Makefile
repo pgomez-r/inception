@@ -1,30 +1,38 @@
 NAME = inception
 
-all:
-	@printf "Setting configuration for ${name}...\n"
-	@docker-compose -f ./docker-compose.yml up -d
 
-build:
-	@printf "Building ${name}...\n"
-	@docker-compose -f ./docker-compose.yml up -d --build
+
+all:
+	@mkdir -p /home/${USER}/data/mariadb
+	@mkdir -p /home/${USER}/data/wordpress
+	@printf "Building and setting configuration for ${NAME}...\n"
+	@docker-compose -f srcs/docker-compose.yml up -d --build
 
 down:
-	@printf "Stopping ${name}...\n"
-	@docker-compose -f ./docker-compose.yml down
-
-re:	down
-	@printf "Reassembling ${name} configuration...\n"
-	@docker-compose -f ./docker-compose.yml up -d --build
+	@printf "Stopping ${NAME}...\n"
+	@docker-compose -f srcs/docker-compose.yml down
 
 clean: down
-	@printf "Clearing the configuration of ${name}...\n"
-	@docker system prune -a
-
-fclean:
-	@printf "Complete cleanup of all docker configurations\n"
-	@docker stop $$(docker ps -qa)
+	@printf "Stopping and cleaning up all docker configurations of ${NAME}...\n"
 	@docker system prune --all --force --volumes
 	@docker network prune --force
 	@docker volume prune --force
+
+fclean: down
+	@printf "Cleaning all configuration of ${NAME} and both volumes and host data...\n"
+	@docker system prune --all --force --volumes
+	@docker network prune --force
+	@docker volume prune --force
+	@docker image prune --all --force
+	@docker container prune --force
+	@docker builder prune --all --force
+	@sudo rm -rf ~/data/wordpress/*
+	@sudo rm -rf ~/data/mariadb/*
+
+re:	clean
+	@mkdir -p /home/${USER}/data/mariadb
+	@mkdir -p /home/${USER}/data/wordpress
+	@printf "Reassembling ${NAME} configuration...\n"
+	@docker-compose -f srcs/docker-compose.yml up -d --build
 
 .PHONY	: all build down re clean fclean

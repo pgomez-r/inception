@@ -6,20 +6,18 @@ Also, we will upgrade our Makefile again after all the work is done, adding some
 
 ## Step 1. Update nginx configuration to work with WordPress
 
-We need to change the configuration of nginx so that it processes only php files. To do this, remove everything from the config index.html .
+When we firs set our nginx service, we left a basic version just to check that the server itself was working correclty. Now we need to change the configuration of nginx so that it processes only php files. To do this, we will remove any reference to html that we had before, replace them by php equivalent and uncomment the block that processes php.
 
-``vim requirements/nginx/conf/nginx.conf``
-
-For complete happiness, we just need to uncomment the nginx block that processes php so that our nginx.conf looks like this:
+Our updated `nginx.conf` file looks like this:
 
 ```
 server {
     listen      443 ssl;
-    server_name  <your_nickname>.42.fr www.<your_nickname>.42.fr;
+    server_name  <your_username>.42.fr www.<your_username>.42.fr;
     root    /var/www/;
     index index.php;
-    ssl_certificate     /etc/nginx/ssl/<your_nickname>.42.fr.crt;
-    ssl_certificate_key /etc/nginx/ssl/<your_nickname>.42.fr.key;
+    ssl_certificate     /etc/nginx/ssl/<your_username>.42.fr.crt;
+    ssl_certificate_key /etc/nginx/ssl/<your_username>.42.fr.key;
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_session_timeout 10m;
     keepalive_timeout 70;
@@ -42,13 +40,103 @@ server {
 }
 ```
 
-We will definitely replace all <your_nickname> with an inter nickname to make it work.
+> Again, we will need to replace all <your_username> with an real 42 nickname to make it work.
 
-Now our configuration is ready to launch.
+### Version of the file with explanation comments:
 
-## Step 2. Create volumes and Network
+```
+# Define a server block to handle requests
+server {
+    # Listen on port 443 for HTTPS connections with SSL/TLS enabled
+    listen      443 ssl;
 
-nginx and wordpress should have a common section for data exchange. Also, the task requires a section for storing the database. And all this should be stored in our /home/<username>/data. You can mount the same folder back and forth, but for convenience, create a partition by specifying the path to its folder:v
+    # Specify the server name (domain) that this block will respond to
+    server_name  <your_username>.42.fr www.<your_username>.42.fr;
+
+    # Define the root directory where the website files are stored
+    root    /var/www/;
+
+    # Set the default file to serve when a directory is requested
+    index index.php;
+
+    # Specify the path to the SSL certificate file
+    ssl_certificate     /etc/nginx/ssl/<your_username>.42.fr.crt;
+
+    # Specify the path to the SSL certificate private key file
+    ssl_certificate_key /etc/nginx/ssl/<your_username>.42.fr.key;
+
+    # Define the SSL protocols that are allowed (TLS 1.2 and 1.3)
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    # Set the timeout for SSL sessions to 10 minutes
+    ssl_session_timeout 10m;
+
+    # Set the keepalive timeout to 70 seconds
+    keepalive_timeout 70;
+
+    # Define a location block to handle requests to the root URL path (/)
+    location / {
+        # Try to serve the requested file, if not found, pass the request to index.php with the query arguments
+        try_files $uri /index.php?$args;
+
+        # Add a custom header indicating the last modification date of the resource
+        add_header Last-Modified $date_gmt;
+
+        # Add a Cache-Control header to prevent caching of the content
+        add_header Cache-Control 'no-store, no-cache';
+
+        # Disable the If-Modified-Since header to prevent conditional requests
+        if_modified_since off;
+
+        # Disable expiration headers
+        expires off;
+
+        # Disable ETag headers
+        etag off;
+    }
+
+    # Define a location block to handle requests for PHP files
+    location ~ \.php$ {
+        # Split the path info for FastCGI processing
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+
+        # Pass the PHP requests to the FastCGI server (e.g., PHP-FPM) running on 'wordpress' at port 9000
+        fastcgi_pass wordpress:9000;
+
+        # Set the default index file for FastCGI
+        fastcgi_index index.php;
+
+        # Include the standard FastCGI parameters
+        include fastcgi_params;
+
+        # Set the SCRIPT_FILENAME parameter for FastCGI to the full path of the PHP script
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+
+        # Set the PATH_INFO parameter for FastCGI to the additional path information
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+    }
+}
+```
+
+Now our configuration is finish and our nginx service is ready to serve our wordpress site to the localhost, let's move on.
+
+## Step 2. Create and connect volumes and network
+
+### Volumes
+
+Docker volumes are a way to persist data and share it between containers or between a container and the host machine. Without volumes, when a container is stopped or deleted, all the data inside it is lost. Volumes allow you to store data outside the container, making it persistent and accessible even after the container is removed.
+
+In this project, we are using *bind mounts*, which are a type of Docker volume that maps a specific directory on your host machine -your computer- to a directory inside the container. This allows for easy data sharing and persistence. Also, the subject requires the directory for storing all these volumes data to be located at `/home/<username>/data`.
+
+For our services to work together, Nginx needs access to WordPress files (PHP scripts, themes, plugins...) to serve the website; and WordPress needs a place to store its data (posts, users, settings...), which is handled by MariaDB.
+
+Then, we need to create two volumes:
+
+- wp-volume: sharing files Nginx <--> WordPress
+
+- db-volume: storing/modifying files WordPress <--> MariaDB
+
+To set this volumes we need to declare them in `docker-compose.yml`, name them, use the `o: bind` and `type: none` options so they become bind mounts, and also include the path of the 'reference' directory on the host machine, for example:
 
 ```
 volumes:
@@ -65,42 +153,38 @@ volumes:
       device: /home/${USER}/data/mariadb
 ```
 
-Next, we need to combine our containers into a single network. In fact, all containers that are registered inside a single docker-compose file or whose configurations are located in the same folder are automatically combined into a common network. However, the name of the network is not set by us. But accessing the web can sometimes be useful.
+How would this work when our services are built and running? On your host machine, Docker will have created -or used, if already existing- the directories, then those will be mapped to the appropriate directories inside the containers. 
 
-In order for our network to be accessible to us by name, let's create our own network in addition to the default one. It is created extremely simply:
+During running time, each service will write and/or read from each directory as needed, and when you stop or delete the containers, the data in `/home/${USER}/data/wordpress` and `/home/${USER}/data/mariadb` will remain intact.
+
+When you restart the containers, they will use the same data, ensuring your website and database are preserved.
+
+### Network
+
+Next, we need to combine our containers into a single network. In fact, all containers that are registered inside the same single docker-compose.yml file are automatically combined into a common default network. 
+
+However, we cannot name or set any options to this network, so we will create our own for convenience, so it can be accesible to us by name -and also, because the subject requires to do so...-
+
 ```
 networks:
     inception:
         driver: bridge
 ```
 
-Now let's add this section and our network to all the containers that depend on it. And let's not forget to uncomment nginx dependencies. So our entire configuration will look like this:
+## Updated docker-compose.yml
+
+Let's update our docker-compose.yml to reflect the new volumes and the network in the containers that need to. We will do this by adding or uncommenting service dependencies and options - remember that some of them were previously left to do-. Also, I am going to reorder the services so they follow the dependency order: mariadb(no dependecy) - wordpress(depens on mariadb) - nginx(depens on wordpress).
+
+Our new file will look like this:
 
 ```
 version: '3'
 
 services:
-  nginx:
-    build:
-      context: .
-      dockerfile: requirements/nginx/Dockerfile
-    container_name: nginx
-    depends_on:
-      - wordpress
-    ports:
-      - "443:443"
-    networks:
-      - inception
-    volumes:
-      - ./requirements/nginx/conf/:/etc/nginx/http.d/
-      - ./requirements/nginx/tools:/etc/nginx/ssl/
-      - wp-volume:/var/www/
-    restart: always
-
   mariadb:
     build:
-      context: .
-      dockerfile: requirements/mariadb/Dockerfile
+      context: ./requirements/mariadb
+      dockerfile: Dockerfile
       args:
         DB_NAME: ${DB_NAME}
         DB_USER: ${DB_USER}
@@ -113,24 +197,41 @@ services:
       - inception
     volumes:
       - db-volume:/var/lib/mysql
-    restart: always
+    restart: on-failure
 
   wordpress:
     build:
-      context: .
-      dockerfile: requirements/wordpress/Dockerfile
+      context: ./requirements/wordpress
+      dockerfile: Dockerfile
       args:
         DB_NAME: ${DB_NAME}
         DB_USER: ${DB_USER}
         DB_PASS: ${DB_PASS}
     container_name: wordpress
     depends_on:
-      - mariadb
-    restart: always
+      mariadb:
+       condition: service_healthy
     networks:
       - inception
     volumes:
       - wp-volume:/var/www/
+    restart: on-failure
+
+  nginx:
+    build:
+      context: ./requirements/nginx
+      dockerfile: Dockerfile
+    container_name: nginx
+    depends_on:
+     - wordpress
+    ports:
+      - "443:443"
+    networks:
+     - inception
+    volumes:
+      - ./requirements/nginx/conf/:/etc/nginx/http.d/
+      - ./requirements/nginx/tools:/etc/nginx/ssl/
+    restart: on-failure
 
 volumes:
   wp-volume:
@@ -150,46 +251,11 @@ networks:
         driver: bridge
 ```
 
-## Step 3. Changing the Makefile
+## Step 3. Updating the Makefile
 
 ### Create a script that generates the data folder
 
 When running a Makefile, we need to check for the existence of the directories we need, and if they don't exist, then create them. A simple script will do this. Let's put it, for example, in the wordpress/tools folder:
-
-```
-mkdir requirements/wordpress/tools
-
-vim requirements/wordpress/tools/make_dir.sh
-```
-
-And add this code:
-
-```
-#!/bin/bash
-if [ ! -d "/home/${USER}/data" ]; then
-        mkdir ~/data
-        mkdir ~/data/mariadb
-        mkdir ~/data/wordpress
-fi
-```
-
-This code checks for the data folder in the user's folder, and if it is missing, creates all the necessary folder configurations.
-
-Remember to give the script execution rights:
-
-``chmod +x requirements/wordpress/tools/make_dir.sh``
-
-Let's execute it:
-
-``requirements/wordpress/tools/make_dir.sh``
-
-And now check the result:
-
-``ls ~/data/``
-
-We should see two of our folders - wordpress and mariadb.
-
-Below I will add this script to the Makefile and it will work as it should.
 
 Also, do not forget to copy our Makefile. It will have to be changed a bit, because docker-compose is on the srcs path. This imposes certain restrictions on us, because by making a make on the directory above, we will not pick up our secrets (the system will search.env in the same directory where the Makefile is located). Therefore, we indicate to our docker-compose not only the path to ./srcs, but also the path to .env. This is done by specifying the --env-file flag.:
 
@@ -197,11 +263,6 @@ Also, do not forget to copy our Makefile. It will have to be changed a bit, beca
 name = inception
 all:
 	@printf "Launch configuration ${name}...\n"
-  @bash srcs/requirements/wordpress/tools/make_dir.sh
-	@docker-compose -f ./srcs/docker-compose.yml --env-file srcs/.env up -d
-
-build:
-	@printf "Building configuration ${name}...\n"
   @bash srcs/requirements/wordpress/tools/make_dir.sh
 	@docker-compose -f ./srcs/docker-compose.yml --env-file srcs/.env up -d --build
 

@@ -138,32 +138,67 @@ To do some testing later, add a `index.html` file just in /nginx folder, and add
 
 ## Step 3. Create a configuration file
 
-Naturally, our nginx won't work without a configuration file. We need to create a config file in our project so Dockerfile can copy to the image and place it in the right target directory when building.
+Naturally, our nginx won't work without a configuration file. We need to create a config file in our project so Dockerfile can copy it to the image and place it in the right target directory when building.
 
 ``mkdir conf && vim conf/nginx.conf``
 
-Again, this example will not be the final version, for now we will use a index.html so we can easily check if the service is properly build and running correctly. Later on, we will have to modify this to work with wordpress (php), so we will comment out the sections responsible for php and temporarily add html support:
+Here is an example of a working **-or should be working-** nginx.conf file, with explaning comments:
 
 ```
+# Define a server block to handle requests
 server {
+    # Listen on port 443 for HTTPS connections with SSL/TLS enabled
     listen      443 ssl;
-    server_name  pgomez-r.42.fr www.pgomez-r.42.fr;
+
+    # Specify the server name (domain) that this block will respond to
+    server_name  <your_username>.42.fr www.<your_username>.42.fr;
+
+    # Define the root directory where the website files are stored
     root    /var/www/html;
-    index index.html; #later change this for php (wordpress)
-    ssl_certificate     /etc/nginx/ssl/pgomez-r.42.fr.crt;
-    ssl_certificate_key /etc/nginx/ssl/pgomez-r.42.fr.key;
+
+    # Set the default file to serve when a directory is requested
+    index index.html; # Change this to index.php when WordPress is ready
+
+    # Specify the path to the SSL certificate file
+    ssl_certificate     /etc/nginx/ssl/<your_username>.42.fr.crt;
+
+    # Specify the path to the SSL certificate private key file
+    ssl_certificate_key /etc/nginx/ssl/<your_username>.42.fr.key;
+
+    # Define the SSL protocols that are allowed (TLS 1.2 and 1.3)
     ssl_protocols       TLSv1.2 TLSv1.3;
+
+    # Set the timeout for SSL sessions to 10 minutes
     ssl_session_timeout 10m;
+
+    # Set the keepalive timeout to 70 seconds
     keepalive_timeout 70;
+
+    # Define a location block to handle requests to the root URL path (/)
     location / {
-        index index.html; #TODO: change to index.php when wordpress is ready
-        try_files $uri /index.html?$args; #TODO: change to index.php when wordpress is ready
+        # Set the default file to serve when a directory is requested
+        index index.html; # TODO: Change this to index.php when WordPress is ready
+
+        # Try to serve the requested file, if not found, pass the request to index.html with the query arguments
+        try_files $uri /index.html?$args; # TODO: Change to index.php when WordPress is ready
+
+        # Add a custom header indicating the last modification date of the resource
         add_header Last-Modified $date_gmt;
+
+        # Add a Cache-Control header to prevent caching of the content
         add_header Cache-Control 'no-store, no-cache';
+
+        # Disable the If-Modified-Since header to prevent conditional requests
         if_modified_since off;
+
+        # Disable expiration headers
         expires off;
+
+        # Disable ETag headers
         etag off;
     }
+
+# The following block is commented out and will be used later for PHP (WordPress) processing
 #        location ~ \\.php$ {
 #            fastcgi_split_path_info ^(.+\.php)(/.+)$;
 #            fastcgi_pass wordpress:9000;
@@ -175,6 +210,12 @@ server {
 }
 
 ```
+
+> (!) Remember to replace <your_username> for your actual 42intra login
+
+Again, this example will not be the final version, for now we will use a index.html so we can easily check if the service is properly build and running correctly. Later on, we will have to modify this to work with wordpress (php), so we will comment out the sections responsible for php and temporarily add html support.
+
+> Later, on [guide 10](https://github.com/pgomez-r/inception/tree/main/guide/10_LINK_SERVICES.md "Link Services"), we will provide a final version of this configuration file, for now we should not worry much about it as long as the server itself works with our simple html file.
 
 ## Step 4. Creating the docker-compose configuration
 
@@ -288,7 +329,7 @@ And we launch our new configuration:
 
 Now, try to open in browser:
 
-``https://127.0.0.1 `` or ``https://<your_nickname>.42.fr``
+``https://127.0.0.1 `` or ``https://<your_username>.42.fr``
 
 And now, if we access the localhost from the browser, we get a working configuration.:
 

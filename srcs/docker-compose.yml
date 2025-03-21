@@ -1,20 +1,6 @@
 version: '3'
 
 services:
-  nginx:
-    build:
-      context: ./requirements/nginx
-      dockerfile: Dockerfile
-    container_name: nginx
-    ports:
-      - "443:443"
-  #  depends_on:
-  #    - wordpress
-    volumes:
-      - ./requirements/nginx/conf/:/etc/nginx/http.d/
-      - ./requirements/nginx/tools:/etc/nginx/ssl/
-    restart: on-failure
-
   mariadb:
     build:
       context: ./requirements/mariadb
@@ -27,8 +13,8 @@ services:
     container_name: mariadb
     ports:
       - "3306:3306"
-    # networks:
-    #   - inception
+    networks:
+      - inception
     volumes:
       - db-volume:/var/lib/mysql
     restart: on-failure
@@ -45,7 +31,41 @@ services:
     depends_on:
       mariadb:
        condition: service_healthy
+    networks:
+      - inception
+    volumes:
+      - wp-volume:/var/www/
+    restart: on-failure
+
+  nginx:
+    build:
+      context: ./requirements/nginx
+      dockerfile: Dockerfile
+    container_name: nginx
+    depends_on:
+     - wordpress
+    ports:
+      - "443:443"
+    networks:
+     - inception
+    volumes:
+      - ./requirements/nginx/conf/:/etc/nginx/http.d/
+      - ./requirements/nginx/tools:/etc/nginx/ssl/
     restart: on-failure
 
 volumes:
+  wp-volume:
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/${USER}/data/wordpress
+
   db-volume:
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/${USER}/data/mariadb
+
+networks:
+    inception:
+        driver: bridge
