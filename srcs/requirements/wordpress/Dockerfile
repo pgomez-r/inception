@@ -20,7 +20,7 @@ RUN apk update && apk upgrade && apk add --no-cache \
     php${PHP_VERSION}-curl php${PHP_VERSION}-dom php${PHP_VERSION}-exif \
     php${PHP_VERSION}-fileinfo php${PHP_VERSION}-mbstring \
     php${PHP_VERSION}-openssl php${PHP_VERSION}-xml php${PHP_VERSION}-zip \
-    php${PHP_VERSION}-redis wget unzip && rm -rf /var/cache/apk/*
+    php${PHP_VERSION}-redis wget unzip mysql-client && rm -rf /var/cache/apk/*
 
 # Create a symlink for php binary
 RUN ln -s /usr/bin/php${PHP_VERSION} /usr/bin/php
@@ -48,15 +48,13 @@ RUN wget -O wordpress.zip https://wordpress.org/wordpress-6.5.2.zip && \
 COPY conf/wp-config.sh .
 
 # Execute script, remove it after and give all persmissions to wp-content folder
-RUN sh wp-config.sh && rm wp-config.sh && \
-    chmod -R 0777 wp-content/
+RUN sh wp-config.sh && rm wp-config.sh && chmod -R 0777 wp-content/
 
-# Script to automate the installation of WordPress and setup of necessary services
-COPY conf/wp-setup.sh .
-RUN sh wp-setup.sh && rm wp-setup.sh
+# Copy script to automate the installation of WordPress and setup of necessary services
+COPY conf/wp-setup.sh /usr/local/bin/wp-setup.sh
+RUN chmod +x /usr/local/bin/wp-setup.sh
 
 EXPOSE 9000
 
-# Start php-fpm service in the foreground
-CMD ["sh", "-c", "/usr/sbin/php-fpm82 -F"]
-#CMD ["echo", "hola"]
+# Start php-fpm service in the foreground and run wp-setup.sh
+CMD ["sh", "-c", "/usr/local/bin/wp-setup.sh && /usr/sbin/php-fpm82 -F"]

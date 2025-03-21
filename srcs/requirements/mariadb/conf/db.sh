@@ -8,6 +8,10 @@ if [ ! -d "/var/lib/mysql/mysql" ]; then
 
 	# Init the database
 	mysql_install_db --basedir=/usr --datadir=/var/lib/mysql --user=mysql --rpm
+	if [ $? -ne 0 ]; then
+		echo "Error: Failed to initialize MariaDB data directory."
+		exit 1
+	fi
 
 	tfile=$(mktemp)
 	if [ ! -f "$tfile" ]; then
@@ -40,5 +44,9 @@ EOF
 
 	# Run the SQL script to set up the database
 	/usr/bin/mysqld --user=mysql --bootstrap < /tmp/create_db.sql
+	if [ $? -ne 0 ]; then
+		echo "Error: Failed to create database and user."
+		exit 1
+	fi
 	rm -f /tmp/create_db.sql
 fi

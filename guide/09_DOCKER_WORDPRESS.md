@@ -83,7 +83,7 @@ RUN apk update && apk upgrade && apk add --no-cache \
     php${PHP_VERSION}-curl php${PHP_VERSION}-dom php${PHP_VERSION}-exif \
     php${PHP_VERSION}-fileinfo php${PHP_VERSION}-mbstring \
     php${PHP_VERSION}-openssl php${PHP_VERSION}-xml php${PHP_VERSION}-zip \
-    php${PHP_VERSION}-redis wget unzip && rm -rf /var/cache/apk/*
+    php${PHP_VERSION}-redis wget unzip mysql-client && rm -rf /var/cache/apk/*
 ```
 
 The next step is to modify wordpress configuration as we need. We will edit www.conf file so our fastcgi listens to all connections on port 9000.
@@ -106,22 +106,27 @@ After assigning a working directory, we download the latest version of wordpress
 
 Next, we will copy and execute our configuration script, which will create the file `wp-config.php` and fill it with our desired cofiguration, as well as getting the information about or mariadb database. We will delete this script once finished and give full permissions to the wp-conten folder so that our CMS can download themes, plugins, save images and other files.
 
-Then, we do the same with another script, this one will automate the installation of WordPress and will setup the necessary services.
+Then, we do the same with another script, this one will automate the installation of WordPress and will setup the necessary services. This time we will only copy to the script to the desired folder in the image container, as *this script needs to be executed at run-time, not build-time(!)*
 
 > We will see both scripts in more detail later in this same guide section.
 
-Finally, expose the port and set CMD to run our installed php-fpm **(attention! the version must match the installed one!)**
+Finally, expose the port and set CMD to execute or wp-config script and then run our installed php-fpm **(attention! the version must match the installed one!)**
 
 ```
 WORKDIR /var/www
+
 RUN wget https://wordpress.org/latest.zip && \
     unzip latest.zip && \
     cp -rf wordpress/* . && \
     rm -rf wordpress latest.zip
-COPY ./requirements/wordpress/conf/wp-config-create.sh .
-RUN sh wp-config-create.sh && rm wp-config-create.sh && \
-    chmod -R 0777 wp-content/
-CMD ["/usr/sbin/php-fpm8", "-F"]
+
+COPY conf/wp-config.sh .
+RUN sh wp-config.sh && rm wp-config.sh && chmod -R 0777 wp-content/
+
+COPY conf/wp-setup.sh /usr/local/bin/wp-setup.sh
+RUN chmod +x /usr/local/bin/wp-setup.sh
+
+CMD ["sh", "-c", "/usr/local/bin/wp-setup.sh && /usr/sbin/php-fpm82 -F"]
 ```
 
 ### Full Dockerfile example commented
@@ -140,6 +145,7 @@ ARG WP_PASS
 
 # Install php and its main packages
 # Install wget and unzip
+# Clean cache after installation
 # All this is a single line commmand, you can display as you prefer for better readability
 RUN apk update && apk upgrade && apk add --no-cache \
     php${PHP_VERSION} php${PHP_VERSION}-fpm php${PHP_VERSION}-phar \
@@ -147,7 +153,13 @@ RUN apk update && apk upgrade && apk add --no-cache \
     php${PHP_VERSION}-curl php${PHP_VERSION}-dom php${PHP_VERSION}-exif \
     php${PHP_VERSION}-fileinfo php${PHP_VERSION}-mbstring \
     php${PHP_VERSION}-openssl php${PHP_VERSION}-xml php${PHP_VERSION}-zip \
-    php${PHP_VERSION}-redis wget unzip && rm -rf /var/cache/apk/*
+    php${PHP_VERSION}-redis wget unzip mysql-client && rm -rf /var/cache/apk/*
+
+# Create a symlink for php binary
+RUN ln -s /usr/bin/php${PHP_VERSION} /usr/bin/php
+
+# Verify PHP installation before running wp-setup.sh
+RUN php -v
 
 # Modify PHP-FPM configuration
 RUN sed -i "s|listen = 127.0.0.1:9000|listen = 9000|g" /etc/php${PHP_VERSION}/php-fpm.d/www.conf && \
@@ -166,21 +178,19 @@ RUN wget -O wordpress.zip https://wordpress.org/wordpress-6.5.2.zip && \
     rm -rf wordpress wordpress.zip
 
 # Copy script from project folder to image, which will be used to generate the wp-config.php
-COPY ./requirements/wordpress/conf/wp-config-create.sh .
+COPY conf/wp-config.sh .
 
 # Execute script, remove it after and give all persmissions to wp-content folder
-RUN sh wp-config-create.sh && rm wp-config-create.sh && \
-    chmod -R 0777 wp-content/
+RUN sh wp-config.sh && rm wp-config.sh && chmod -R 0777 wp-content/
 
-# Script to automate the installation of WordPress and setup of necessary services
-# COPY ./requirements/wordpress/conf/wp-config-create.sh .
-# RUN sh wp-config-create.sh && rm wp-config-create.sh && \
-#     chmod -R 0777 wp-content/
+# Copy script to automate the installation of WordPress and setup of necessary services
+COPY conf/wp-setup.sh /usr/local/bin/wp-setup.sh
+RUN chmod +x /usr/local/bin/wp-setup.sh
 
 EXPOSE 9000
 
-# Start php-fpm service in the foreground
-CMD ["sh", "-c", "/usr/sbin/php-fpm82 -F"]
+# Start php-fpm service in the foreground and run wp-setup.sh
+CMD ["sh", "-c", "/usr/local/bin/wp-setup.sh && /usr/sbin/php-fpm82 -F"]
 ```
 
 ## Step 2. Configuration of docker-compose

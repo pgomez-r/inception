@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ ! -f "/var/www/wp-config.php" ]; then
-cat << EOF > /var/www/wp-config.php
+    cat << EOF > /var/www/wp-config.php
 <?php
 define( 'DB_NAME', '${DB_NAME}' );
 define( 'DB_USER', '${DB_USER}' );
@@ -17,4 +17,7 @@ define( 'ABSPATH', __DIR__ . '/' );}
 require_once ABSPATH . 'wp-settings.php';
 EOF
 
+    echo "wp-config.php created successfully."
+else
+    echo "wp-config.php already exists."
 fi

@@ -44,4 +44,4 @@ RUN sh db.sh
 USER mysql
 
 # Start MySQL server
-CMD ["/usr/bin/mysqld", "--skip-log-error"]
+CMD ["mysqld", "--skip-log-error"]

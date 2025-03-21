@@ -18,6 +18,11 @@ services:
     volumes:
       - db-volume:/var/lib/mysql
     restart: on-failure
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   wordpress:
     build:
@@ -67,5 +72,5 @@ volumes:
       device: /home/${USER}/data/mariadb
 
 networks:
-    inception:
-        driver: bridge
+  inception:
+    driver: bridge
