@@ -1,16 +1,17 @@
-# OS base image
+# OS Base image
 FROM debian:bullseye
 
-# Install nginx package, plus openssl and ca-certificates so we can read/use our .crt and .key
-RUN apt-get update && apt-get install -y nginx openssl ca-certificates
+# Install dependencies and create nginx ssl folder to store certificates later
+RUN apt-get update && apt-get install -y nginx openssl && mkdir -p /etc/nginx/ssl
 
-# Set nginx configuration by copying our own .conf file in default configuration directory
+# Generate ssl certificate
+RUN openssl req -subj "/C=SP/ST=Malaga/L=Malaga/O=42 Malaga/OU=pgomez-r/CN=pgomez-r" \
+    -new -newkey rsa:2048 -days 365 -nodes -x509 \
+    -keyout /etc/nginx/ssl/pgomez-r.42.fr.key -out /etc/nginx/ssl/pgomez-r.42.fr.crt
+
+RUN ls -la /etc/nginx/ssl/ # Verify files exist
+
 COPY conf/nginx.conf /etc/nginx/sites-available/default
-
-# Copy our certificates into nginx ssl certificates directory
-# Alternative: create the certificates at the very moment of building the image, by running the commands to do so
-COPY tools/pgomez-r.42.fr.crt /etc/nginx/ssl/pgomez-r.42.fr.crt
-COPY tools/pgomez-r.42.fr.key /etc/nginx/ssl/pgomez-r.42.fr.key
 
 EXPOSE 443
 

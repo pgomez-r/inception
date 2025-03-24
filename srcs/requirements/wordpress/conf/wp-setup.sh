@@ -1,5 +1,19 @@
 #!/bin/sh
 
+# =============================================
+# Early Exit Check - If WordPress is fully configured
+# =============================================
+if [ -f /var/www/html/wp-config.php ] && 
+   wp core is-installed --allow-root --path="/var/www/html" && 
+   wp user get "$WP_USER" --allow-root --path="/var/www/html" &>/dev/null; then
+    echo "WordPress is already fully configured. Exiting setup."
+    exit 0
+fi
+
+# =============================================
+# Normal Setup Process (Only runs if not configured)
+# =============================================
+
 # Verify WP-CLI is installed
 if ! command -v wp > /dev/null 2>&1; then
     echo "Error: WP-CLI (wp command) is not installed"
@@ -38,30 +52,37 @@ until mysql -h mariadb -u"${DB_USER}" -p"${DB_PASS}" -e "USE ${DB_NAME};" 2>/dev
     sleep 5
 done
 
-
 echo "Database ready. Proceeding with WordPress setup..."
 
-# Run WordPress CLI commands
-wp core install --allow-root \
-    --url="$DOMAIN_NAME" \
-    --title="pgomez-r inception" \
-    --admin_user="$DB_USER" \
-    --admin_password="$DB_PASS" \
-    --admin_email="pedrogruz.11@gmail.com" \
-    --path="/var/www/html"
-if [ $? -ne 0 ]; then
-    echo "Error: wp core install failed."
-    exit 1
+# Only run core install if WordPress isn't already installed
+if ! wp core is-installed --allow-root --path="/var/www/html"; then
+    echo "Running WordPress core installation..."
+    wp core install --allow-root \
+        --url="$DOMAIN_NAME" \
+        --title="pgomez-r inception" \
+        --admin_user="$DB_USER" \
+        --admin_password="$DB_PASS" \
+        --admin_email="pedrogruz.11@gmail.com" \
+        --path="/var/www/html"
+    if [ $? -ne 0 ]; then
+        echo "Error: wp core install failed."
+        exit 1
+    fi
+else
+    echo "WordPress is already installed. Skipping core installation."
 fi
 
-#Create WordPress second user (not admin)
-wp user create "$WP_USER" "guest@example.com" \
-    --role=author \
-    --user_pass="$WP_PASS" \
-    --allow-root
-if [ $? -ne 0 ]; then
-    echo "Error: wp second user create failed."
-    exit 1
+# Only create user if it doesn't exist
+if ! wp user list --allow-root --path="/var/www/html" | grep -q "^\s*[0-9]\+\s\+$WP_USER\s"; then
+    echo "Creating WordPress user '$WP_USER'..."
+    wp user create "$WP_USER" "guest@example.com" \
+        --role=author \
+        --user_pass="$WP_PASS" \
+        --allow-root \
+        --path="/var/www/html"
+    [ $? -ne 0 ] && echo "Error: Failed to create user" && exit 1
+else
+    echo "User '$WP_USER' already exists. Skipping creation."
 fi
 
 echo "WordPress setup completed successfully."
