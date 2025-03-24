@@ -12,10 +12,6 @@ COPY conf/nginx.conf /etc/nginx/sites-available/default
 COPY tools/pgomez-r.42.fr.crt /etc/nginx/ssl/pgomez-r.42.fr.crt
 COPY tools/pgomez-r.42.fr.key /etc/nginx/ssl/pgomez-r.42.fr.key
 
-# Copy a basic index.html in the index directory used by our config, so we can test if the server is workig
-# We will change this later, when wordpress is set and working
-COPY index.html /var/www/html/index.html
-
 EXPOSE 443
 
 # CMD to be executed when docker-compose, to run nginx without daemon "mode"

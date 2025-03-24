@@ -32,14 +32,24 @@ services:
         DB_NAME: ${DB_NAME}
         DB_USER: ${DB_USER}
         DB_PASS: ${DB_PASS}
+        DOMAIN_NAME: ${DOMAIN_NAME}
+        WP_USER: ${WP_USER}
+        WP_PASS: ${WP_PASS}
     container_name: wordpress
+    environment:
+    - DB_NAME=${DB_NAME}
+    - DB_USER=${DB_USER}
+    - DB_PASS=${DB_PASS}
+    - DOMAIN_NAME=${DOMAIN_NAME}
+    - WP_USER=${WP_USER}
+    - WP_PASS=${WP_PASS}
     depends_on:
       mariadb:
        condition: service_healthy
     networks:
       - inception
     volumes:
-      - wp-volume:/var/www/
+      - wp-volume:/var/www/html
     restart: on-failure
 
   nginx:
@@ -56,6 +66,7 @@ services:
     volumes:
       - ./requirements/nginx/conf/:/etc/nginx/http.d/
       - ./requirements/nginx/tools:/etc/nginx/ssl/
+      - wp-volume:/var/www/html
     restart: on-failure
 
 volumes:

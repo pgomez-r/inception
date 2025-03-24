@@ -1,7 +1,7 @@
 #!/bin/sh
 
-if [ ! -f "/var/www/wp-config.php" ]; then
-    cat << EOF > /var/www/wp-config.php
+if [ ! -f "/var/www/html/wp-config.php" ]; then
+    cat << EOF > /var/www/html/wp-config.php
 <?php
 define( 'DB_NAME', '${DB_NAME}' );
 define( 'DB_USER', '${DB_USER}' );

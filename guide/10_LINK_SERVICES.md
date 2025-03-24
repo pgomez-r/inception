@@ -13,15 +13,16 @@ Our updated `nginx.conf` file looks like this:
 ```
 server {
     listen      443 ssl;
-    server_name  <your_username>.42.fr www.<your_username>.42.fr;
-    root    /var/www/;
+    server_name  <your_username>.fr www.<your_username>.fr;
+    root    /var/www/html;
     index index.php;
-    ssl_certificate     /etc/nginx/ssl/<your_username>.42.fr.crt;
-    ssl_certificate_key /etc/nginx/ssl/<your_username>.42.fr.key;
+    ssl_certificate     /etc/nginx/ssl/<your_username>.fr.crt;
+    ssl_certificate_key /etc/nginx/ssl/<your_username>.fr.key;
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_session_timeout 10m;
     keepalive_timeout 70;
     location / {
+        index index.php;
         try_files $uri /index.php?$args;
         add_header Last-Modified $date_gmt;
         add_header Cache-Control 'no-store, no-cache';
@@ -29,7 +30,7 @@ server {
         expires off;
         etag off;
     }
-    location ~ \.php$ {
+    location ~ \\.php$ {
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
         fastcgi_pass wordpress:9000;
         fastcgi_index index.php;
@@ -38,6 +39,7 @@ server {
         fastcgi_param PATH_INFO $fastcgi_path_info;
     }
 }
+
 ```
 
 > Again, we will need to replace all <your_username> with an real 42 nickname to make it work.
@@ -45,74 +47,69 @@ server {
 ### Version of the file with explanation comments:
 
 ```
-# Define a server block to handle requests
+# Nginx server block configuration for HTTPS
 server {
-    # Listen on port 443 for HTTPS connections with SSL/TLS enabled
+    # Listen on port 443 with SSL/TLS enabled
     listen      443 ssl;
-
-    # Specify the server name (domain) that this block will respond to
-    server_name  <your_username>.42.fr www.<your_username>.42.fr;
-
-    # Define the root directory where the website files are stored
-    root    /var/www/;
-
-    # Set the default file to serve when a directory is requested
+    
+    # Define the server names that this block will respond to
+    server_name  <your_username>.fr www.<your_username>.fr;
+    
+    # Set the root directory where website files are stored
+    root    /var/www/html;
+    
+    # Define the default index file to serve
     index index.php;
-
-    # Specify the path to the SSL certificate file
-    ssl_certificate     /etc/nginx/ssl/<your_username>.42.fr.crt;
-
-    # Specify the path to the SSL certificate private key file
-    ssl_certificate_key /etc/nginx/ssl/<your_username>.42.fr.key;
-
-    # Define the SSL protocols that are allowed (TLS 1.2 and 1.3)
+    
+    # SSL certificate and key file paths
+    ssl_certificate     /etc/nginx/ssl/<your_username>.fr.crt;
+    ssl_certificate_key /etc/nginx/ssl/<your_username>.fr.key;
+    
+    # Specify allowed SSL/TLS protocols (only secure versions)
     ssl_protocols       TLSv1.2 TLSv1.3;
-
-    # Set the timeout for SSL sessions to 10 minutes
+    
+    # Set SSL session cache timeout to 10 minutes
     ssl_session_timeout 10m;
-
-    # Set the keepalive timeout to 70 seconds
+    
+    # Set keepalive timeout to 70 seconds for persistent connections
     keepalive_timeout 70;
-
-    # Define a location block to handle requests to the root URL path (/)
+    
+    # Configuration for all URI paths (/)
     location / {
-        # Try to serve the requested file, if not found, pass the request to index.php with the query arguments
+        # Default file to serve for directory requests
+        index index.php;
+        
+        # Try to serve the requested URI, fall back to index.php with arguments if not found
         try_files $uri /index.php?$args;
-
-        # Add a custom header indicating the last modification date of the resource
+        
+        # Add headers to prevent caching
         add_header Last-Modified $date_gmt;
-
-        # Add a Cache-Control header to prevent caching of the content
         add_header Cache-Control 'no-store, no-cache';
-
-        # Disable the If-Modified-Since header to prevent conditional requests
+        
+        # Disable caching-related features
         if_modified_since off;
-
-        # Disable expiration headers
         expires off;
-
-        # Disable ETag headers
         etag off;
     }
-
-    # Define a location block to handle requests for PHP files
-    location ~ \.php$ {
-        # Split the path info for FastCGI processing
+    
+    # Configuration for PHP files (handled by PHP-FPM)
+    location ~ \\.php$ {
+        # Split the path info from the PHP script name
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
-
-        # Pass the PHP requests to the FastCGI server (e.g., PHP-FPM) running on 'wordpress' at port 9000
+        
+        # Pass PHP requests to the WordPress PHP-FPM container on port 9000
         fastcgi_pass wordpress:9000;
-
-        # Set the default index file for FastCGI
+        
+        # Default index file for PHP requests
         fastcgi_index index.php;
-
-        # Include the standard FastCGI parameters
+        
+        # Include standard FastCGI parameters
         include fastcgi_params;
-
-        # Set the SCRIPT_FILENAME parameter for FastCGI to the full path of the PHP script
+        
+        # Set SCRIPT_FILENAME parameter for PHP-FPM
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-
-        # Set the PATH_INFO parameter for FastCGI to the additional path information
+        
+        # Set PATH_INFO parameter for PHP-FPM
         fastcgi_param PATH_INFO $fastcgi_path_info;
     }
 }
@@ -175,6 +172,8 @@ networks:
 
 Let's update our docker-compose.yml to reflect the new volumes and the network in the containers that need to. We will do this by adding or uncommenting service dependencies and options - remember that some of them were previously left to do-. Also, I am going to reorder the services so they follow the dependency order: mariadb(no dependecy) - wordpress(depens on mariadb) - nginx(depens on wordpress).
 
+TODO: EXPLAIN HERE THE MAIN CHANGES -> Aside adding volumes and network sections, add each volume to the service using it: db for mariadb + same shared volume for nginx and wp
+
 Our new file will look like this:
 
 ```
@@ -198,6 +197,11 @@ services:
     volumes:
       - db-volume:/var/lib/mysql
     restart: on-failure
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   wordpress:
     build:
@@ -207,14 +211,24 @@ services:
         DB_NAME: ${DB_NAME}
         DB_USER: ${DB_USER}
         DB_PASS: ${DB_PASS}
+        DOMAIN_NAME: ${DOMAIN_NAME}
+        WP_USER: ${WP_USER}
+        WP_PASS: ${WP_PASS}
     container_name: wordpress
+    environment:
+    - DB_NAME=${DB_NAME}
+    - DB_USER=${DB_USER}
+    - DB_PASS=${DB_PASS}
+    - DOMAIN_NAME=${DOMAIN_NAME}
+    - WP_USER=${WP_USER}
+    - WP_PASS=${WP_PASS}
     depends_on:
       mariadb:
        condition: service_healthy
     networks:
       - inception
     volumes:
-      - wp-volume:/var/www/
+      - wp-volume:/var/www/html
     restart: on-failure
 
   nginx:
@@ -231,6 +245,7 @@ services:
     volumes:
       - ./requirements/nginx/conf/:/etc/nginx/http.d/
       - ./requirements/nginx/tools:/etc/nginx/ssl/
+      - wp-volume:/var/www/html
     restart: on-failure
 
 volumes:
@@ -247,8 +262,8 @@ volumes:
       device: /home/${USER}/data/mariadb
 
 networks:
-    inception:
-        driver: bridge
+  inception:
+    driver: bridge
 ```
 
 ## Step 3. Updating the Makefile
@@ -292,25 +307,19 @@ fclean:
 .PHONY	: all build down re clean fclean
 ```
 
-I advise you to do a make clean before saving it to the cloud.
-
-***
-
-The project is deployed `make build", the stop is `make down", the start after the stop is `make`, etc`
+I advise you to do a make clean before saving it to the cloud or anywhere, to keep it as lightest as possible.
 
 This completes the main part of the project. After configuring wordpress, the project can be submitted. You also need to save all the sources to the repository and be able to correctly deploy your project from them.
 
 # Step 4. Checking if all the configuration is working properly
 
-So, after we run `docker-compose u --build` in our `~/project/srcs" directory, we will observe the configuration build for a while. And finally, we will find that everything is assembled and working.:
-
-![настройка wordpress](media/docker_wordpress/install_all.png)
+So, after we run `docker-compose u --build` in our `~/project/srcs" directory, we will observe the configuration build for a while. And finally, we will find that everything is assembled and working.
 
 Just in case, we will check the functionality of the configuration. Let's run a few commands. First, listen to the php socket:
 
 ``docker exec -it wordpress ps aux | grep 'php'``
 
-The output should be as follows:
+The output should be similar as follows:
 
 ```
     1 root      0:00 {php-fpm8} php-fpm: master process (/etc/php8/php-fpm.conf
@@ -323,9 +332,9 @@ Then let's see how php works, having found out the version:
 ``docker exec -it wordpress php -v``
 
 ```
-PHP 8.0.22 (cli) (built: Aug  5 2022 23:54:32) ( NTS )
+PHP 8.2.16 (cli) (built: Feb 21 2024 21:15:38) (NTS)
 Copyright (c) The PHP Group
-Zend Engine v4.0.22, Copyright (c) Zend Technologies
+Zend Engine v4.2.16, Copyright (c) Zend Technologies
 ```
 
 Finally, let's check if all the modules are installed.:
@@ -360,6 +369,6 @@ zlib
 [Zend Modules]
 ```
 
-... and voila! - the settings panel opens in front of us:
+And that's it, if all these checks are OK and you can display your site on your browser, everything has been done -most probably- correctly. You still can check if volume data persists, the website behaves correctly, users are set properly, and many other tests.
 
-![настройка wordpress](media/docker_wordpress/welcome.png)
+> I may include another section to the guide, just after this, to check and cover all requirements of the subject and correction sheet.

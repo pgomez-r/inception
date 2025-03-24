@@ -11,7 +11,7 @@ ARG DB_ROOT
 RUN apk update && apk add --no-cache mariadb mariadb-client
 
 # Create MySQL socket directory with correct permissions
-# chown command sets ownership of the folder /var/run/mysqld to MariaDB (which it 'mysql' user)
+# chown command sets ownership of the folder /var/run/mysqld to MariaDB (which is 'mysql' user)
 RUN mkdir -p /var/run/mysqld && chown mysql:mysql /var/run/mysqld
 
 # Configure MariaDB

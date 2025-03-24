@@ -57,17 +57,17 @@ RUN apk update && apk upgrade && apk add --no-cache \
     php${PHP_VERSION}-simplexml \
     wget
 
-WORKDIR /var/www
+WORKDIR /var/www/html/
 
 RUN wget https://github.com/vrana/adminer/releases/download/v4.8.1/adminer-4.8.1.php && \
-    mv adminer-4.8.1.php index.php && chown -R root:root /var/www/
+    mv adminer-4.8.1.php index.php && chown -R root:root /var/www/html/
 
 EXPOSE 8080
 
-CMD	[ "php", "-S", "[::]:8080", "-t", "/var/www" ]
+CMD	[ "php", "-S", "[::]:8080", "-t", "/var/www/html" ]
 ```
 
-As you can see, I make the /var/www directory my working directory, download adminer to this directory and name it index.php because the interpreter needs to feed a folder, and in the folder it is looking for the index file.
+As you can see, I make the /var/www/html/ directory my working directory, download adminer to this directory and name it index.php because the interpreter needs to feed a folder, and in the folder it is looking for the index file.
 
 Then I open the working port of adminer and in CMD I set the php interpreter on our working directory with the index file. This way php will see our file and launch adminer.
 

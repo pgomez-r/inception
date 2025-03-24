@@ -8,25 +8,25 @@ The site itself is located in the `requirements/bonus/website/conf`, it can be o
 
 ## Step 2. Dockerfile
 
-We take the dockerfile from our nginx, since we will run the html site on the same nginx. We are changing the default config located at `/etc/nginx/http.d/default.conf`, putting a simple code there indicating a different location instead of the standard one (/var/www):
+We take the dockerfile from our nginx, since we will run the html site on the same nginx. We are changing the default config located at `/etc/nginx/http.d/default.conf`, putting a simple code there indicating a different location instead of the standard one (/var/www/html/):
 
 ```
 FROM alpine:3.16
 RUN	apk update && apk upgrade && apk add --no-cache nginx
 
 RUN echo "server {" > /etc/nginx/http.d/default.conf && \
-    echo "root    /var/www;" >> /etc/nginx/http.d/default.conf && \
+    echo "root    /var/www/html;" >> /etc/nginx/http.d/default.conf && \
     echo "location / {" >> /etc/nginx/http.d/default.conf && \
     echo "    try_files \$uri /index.html;" >> /etc/nginx/http.d/default.conf && \
     echo "}}" >> /etc/nginx/http.d/default.conf
 
-COPY requirements/bonus/website/conf/* /var/www/
+COPY requirements/bonus/website/conf/* /var/www/html/
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-We copy all the contents of the site using a mask * to our folder /var/www. We open the 80th port (there is no need to scroll, the port is already open in the system). Well, we run nginx without demonization.
+We copy all the contents of the site using a mask * to our folder /var/www/html/. We open the 80th port (there is no need to scroll, the port is already open in the system). Well, we run nginx without demonization.
 
 ## Step 3. Section in docker-compose
 

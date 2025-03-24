@@ -24,9 +24,9 @@ As usual, we start with the Dockerfile.:
 
 ``vim requirements/bonus/vsftpd/Dockerfile``
 
-In it, we will get the username and password for our ftp server user in variables via ARG. Then we will install our vsftpd. We need to create a user to connect to the server, and we will do this in the next layer. We will install /var/www as the home section for it, where we will mount the section with our wp. Let's not forget to add this user to the root group so that we can process the wordpress directory (otherwise we simply won't have enough rights).
+In it, we will get the username and password for our ftp server user in variables via ARG. Then we will install our vsftpd. We need to create a user to connect to the server, and we will do this in the next layer. We will install /var/www/html/ as the home section for it, where we will mount the section with our wp. Let's not forget to add this user to the root group so that we can process the wordpress directory (otherwise we simply won't have enough rights).
 
-After that, we will set up the configuration file correctly - we will uncomment the parameters we need and add the missing ones. We'll make /var/www the root folder, open port 21 and launch our daemon by feeding it the newly configured vsftpd.conf file.:
+After that, we will set up the configuration file correctly - we will uncomment the parameters we need and add the missing ones. We'll make /var/www/html the root folder, open port 21 and launch our daemon by feeding it the newly configured vsftpd.conf file.:
 
 ```
 FROM alpine:3.16
@@ -37,7 +37,7 @@ ARG FTP_USR \
 RUN apk update && apk upgrade && \
     apk add --no-cache vsftpd
 
-RUN adduser -h /var/www -s /bin/false -D ${FTP_USR} && \
+RUN adduser -h /var/www/html/ -s /bin/false -D ${FTP_USR} && \
     echo "${FTP_USR}:${FTP_PWD}" | /usr/sbin/chpasswd && \
     adduser ${FTP_USR} root
 
@@ -50,7 +50,7 @@ RUN echo "allow_writeable_chroot=YES" >> /etc/vsftpd/vsftpd.conf &&\
     echo 'seccomp_sandbox=NO' >> /etc/vsftpd/vsftpd.conf && \
     echo 'pasv_enable=YES' >> /etc/vsftpd/vsftpd.conf
 
-WORKDIR /var/www
+WORKDIR /var/www/html/
 
 EXPOSE 21
 
@@ -95,7 +95,7 @@ In order for the variables from .env to be passed to the Dockerfile, you need to
     ports:
       - "21:21"
     volumes:
-      - wp-volume:/var/www/
+      - wp-volume:/var/www/html/
     networks:
      - inception
     restart: always

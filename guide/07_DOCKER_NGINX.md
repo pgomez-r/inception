@@ -268,7 +268,7 @@ services:
       - "443:443"
 ```
 
-We add sections so that the container sees our config and our keys, and we also make sure to mount our /var/www - the same folder from the old configuration that we will need for the nginx trial run. Later, we will delete it and take files from the wordpress directory.
+We add sections so that the container sees our config and our keys, and we also make sure to mount our /var/www/html - the same folder from the old configuration that we will need for the nginx trial run. Later, we will delete it and take files from the wordpress directory.
 
 ```
 version: '3'
