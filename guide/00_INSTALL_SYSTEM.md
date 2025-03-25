@@ -1,8 +1,8 @@
-Installing Debian Linux in VM with Virtualbox 
+# Installing Linux OS in VM with Virtualbox 
 
 ### About this step
 
-The original guide this translation follows uses a light version of debian without "native" GUI, but in my case, I did install Debian with GUI, as we need to use a web browser within the VM during the evaluation, so I find this way easier. 
+The original guide that this translation follows uses a light version of debian without "native" GUI, but in my case, I did install Debian with GUI, as we need to use a web browser within the VM during the evaluation, so I find this way easier. 
 
 Also, some of the following steps may differ from what you get while installing the OS in your VM, depeding on the OS that you chose, but the important thing is to know the minimum or recommended settings for your VM.
 
@@ -38,7 +38,7 @@ Also, do not forget to set a convenient screen resolution (zoom level) if you ar
 
 ### 3.1 Start of installation
 
-After all the settings, we launch our project. At the start, we are greeted by the installation menu. I choose a regular installer, but if desired, you can use a graphic one, it's a matter of taste.
+After all the settings, we launch our project. At the start, we are greeted by the installation menu. I choose a regular "auto" installer, but if desired, you can use use a more customized installation, set partitions size, etc. 
 
 ![installation](media/install_debian/install_step_7.png)
 

@@ -30,7 +30,7 @@ server {
         expires off;
         etag off;
     }
-    location ~ \\.php$ {
+    location ~ \.php$ {
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
         fastcgi_pass wordpress:9000;
         fastcgi_index index.php;
@@ -93,7 +93,7 @@ server {
     }
     
     # Configuration for PHP files (handled by PHP-FPM)
-    location ~ \\.php$ {
+    location ~ \.php$ {
         # Split the path info from the PHP script name
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
         

@@ -199,7 +199,7 @@ server {
     }
 
 # The following block is commented out and will be used later for PHP (WordPress) processing
-#        location ~ \\.php$ {
+#        location ~ \.php$ {
 #            fastcgi_split_path_info ^(.+\.php)(/.+)$;
 #            fastcgi_pass wordpress:9000;
 #            fastcgi_index index.php;
