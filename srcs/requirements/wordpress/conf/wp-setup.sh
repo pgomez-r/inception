@@ -58,7 +58,7 @@ echo "Database ready. Proceeding with WordPress setup..."
 if ! wp core is-installed --allow-root --path="/var/www/html"; then
     echo "Running WordPress core installation..."
     wp core install --allow-root \
-        --url="$DOMAIN_NAME" \
+        --url="https://$DOMAIN_NAME" \
         --title="pgomez-r inception" \
         --admin_user="$DB_USER" \
         --admin_password="$DB_PASS" \

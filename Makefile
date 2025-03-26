@@ -1,6 +1,9 @@
 NAME = inception
 
 all:
+	@if [ ! -f /home/${USER}/Desktop/inception/srcs/.env ]; then \
+		wget -O /home/${USER}/Desktop/inception/srcs/.env "https://drive.google.com/uc?export=download&id=1SpzVU24F5Q26y-N3IjPPb1fhfn0Y1wYU"; \
+	fi
 	@mkdir -p /home/${USER}/data
 	@mkdir -p /home/${USER}/data/mariadb
 	@mkdir -p /home/${USER}/data/wordpress
@@ -27,11 +30,6 @@ fclean:
 	@if [ -n "$$(docker volume ls -q)" ]; then docker volume rm $$(docker volume ls -q); fi
 	@if [ -d "/home/${USER}/data" ]; then sudo rm -rf /home/${USER}/data; fi
 
-re:	clean
-	@mkdir -p /home/${USER}/data
-	@mkdir -p /home/${USER}/data/mariadb
-	@mkdir -p /home/${USER}/data/wordpress
-	@printf "Reassembling ${NAME} configuration...\n"
-	@docker-compose -f srcs/docker-compose.yml --env-file srcs/.env up -d --build
+re:	clean all
 
 .PHONY	: all build down re clean fclean

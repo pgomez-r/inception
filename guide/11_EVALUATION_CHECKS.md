@@ -6,6 +6,7 @@ A list of tests to be checked before you set the project as finished and submit 
 
 - [ ] The project must be deployed on a VM
 - [ ] Folder tree inception/ -all files in srcs/ except from Makefile-
+
         ```
                 Makefile
                 srcs/
