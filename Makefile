@@ -1,8 +1,8 @@
 NAME = inception
 
 all:
-	@if [ ! -f /home/${USER}/Desktop/inception/srcs/.env ]; then \
-		wget -O /home/${USER}/Desktop/inception/srcs/.env "https://drive.google.com/uc?export=download&id=1SpzVU24F5Q26y-N3IjPPb1fhfn0Y1wYU"; \
+	@if [ ! -f srcs/.env ]; then \
+		wget -O srcs/.env "https://drive.google.com/uc?export=download&id=1SpzVU24F5Q26y-N3IjPPb1fhfn0Y1wYU"; \
 	fi
 	@mkdir -p /home/${USER}/data
 	@mkdir -p /home/${USER}/data/mariadb
