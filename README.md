@@ -10,6 +10,8 @@ For any suggestions or help, I'd be happy to hear!
 
 ## Project steps
 
+> The idea of this guide is to first set our working environment, which will consist of installing and setting the VM with all necessary packages and configurations; then we will move to Docker basic concept and will set each container but on its own, and the last stage will be -once each container is working properly by itself- to connect all of them and finish all configurations and subject requirements.
+
 Brief info about the stages of the project:
 
 - [x] Installing the OS in virtualbox - [guide 00](https://github.com/pgomez-r/inception/tree/main/guide/00_INSTALL_SYSTEM.md "Installing the OS in virtualbox")
@@ -22,8 +24,8 @@ Brief info about the stages of the project:
 - [x] NGINX service - [guide 07](https://github.com/pgomez-r/inception/tree/main/guide/07_DOCKER_NGINX.md "nginx Deployment")
 - [x] MariaDB service - [guide 08](https://github.com/pgomez-r/inception/tree/main/guide/08_DOCKER_MARIADB.md "mariadb Deployment")
 - [x] Wordpress service - [guide 09](https://github.com/pgomez-r/inception/tree/main/guide/09_DOCKER_WORDPRESS.md "Wordpress Deployment")
-- [ ] Connect all services together - [guide 10](https://github.com/pgomez-r/inception/tree/main/guide/10_LINK_SERVICES.md "Link Services")
-- [ ] Getting ready for evaluation - [guide 10](https://github.com/pgomez-r/inception/tree/main/guide/10_LINK_SERVICES.md "Link Services")
+- [x] Connect all services together - [guide 10](https://github.com/pgomez-r/inception/tree/main/guide/10_LINK_SERVICES.md "Link Services")
+- [x] Getting ready for evaluation - [guide 11](https://github.com/pgomez-r/inception/tree/main/guide/11_EVALUATION_CHECKS.md "Evaluation")
 
 ***BONUS PART***
 **(!) This is just an automatic translation of the original guide - Has not been revised or improved in any way (!)**
