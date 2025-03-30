@@ -21,11 +21,12 @@ Brief info about the stages of the project:
 - [x] Pre-setup - [guide 04](https://github.com/pgomez-r/inception/tree/main/guide/04_FIRST_SETTINGS.md "Pre-setup")
 - [x] Certificate Installation - [guide 05](https://github.com/pgomez-r/inception/tree/main/guide/05_INSTALL_CERTIFICATE.md "Installing the certificate")
 - [x] Creating a Makefile - [guide 06](https://github.com/pgomez-r/inception/tree/main/guide/06_MAKEFILE_CREATION.md "Creating a Makefile")
-- [x] NGINX service - [guide 07](https://github.com/pgomez-r/inception/tree/main/guide/07_DOCKER_NGINX.md "nginx Deployment")
-- [x] MariaDB service - [guide 08](https://github.com/pgomez-r/inception/tree/main/guide/08_DOCKER_MARIADB.md "mariadb Deployment")
-- [x] Wordpress service - [guide 09](https://github.com/pgomez-r/inception/tree/main/guide/09_DOCKER_WORDPRESS.md "Wordpress Deployment")
-- [x] Connect all services together - [guide 10](https://github.com/pgomez-r/inception/tree/main/guide/10_LINK_SERVICES.md "Link Services")
-- [x] Getting ready for evaluation - [guide 11](https://github.com/pgomez-r/inception/tree/main/guide/11_EVALUATION_CHECKS.md "Evaluation")
+- [x] Docker basics - [guide 07](https://github.com/pgomez-r/inception/tree/main/guide/07_DOCKER_BASICS.md "Docker basic concepts")
+- [x] NGINX service - [guide 08](https://github.com/pgomez-r/inception/tree/main/guide/08_DOCKER_NGINX.md "nginx Deployment")
+- [x] MariaDB service - [guide 09](https://github.com/pgomez-r/inception/tree/main/guide/09_DOCKER_MARIADB.md "mariadb Deployment")
+- [x] Wordpress service - [guide 10](https://github.com/pgomez-r/inception/tree/main/guide/10_DOCKER_WORDPRESS.md "Wordpress Deployment")
+- [x] Connect all services together - [guide 11](https://github.com/pgomez-r/inception/tree/main/guide/11_LINK_SERVICES.md "Link Services")
+- [x] Getting ready for evaluation - [guide 12](https://github.com/pgomez-r/inception/tree/main/guide/12_EVALUATION_CHECKS.md "Evaluation")
 
 ***BONUS PART***
 **(!) This is just an automatic translation of the original guide - Has not been revised or improved in any way (!)**
