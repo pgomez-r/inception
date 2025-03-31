@@ -6,7 +6,7 @@ Also, we will upgrade our Makefile again after all the work is done, adding some
 
 ## Step 1. Update nginx configuration to work with WordPress
 
-When we firs set our nginx service, we left a basic version just to check that the server itself was working correclty. Now we need to change the configuration of nginx so that it processes only php files. To do this, we will remove any reference to html that we had before, replace them by php equivalent and uncomment the block that processes php.
+When we first set our nginx service, we left a basic version just to check that the server itself was working correclty. Now we need to change the configuration of nginx so that it processes only php files. To do this, we will remove any reference to html that we had before, replace them by php equivalent and uncomment the block that processes php.
 
 Our updated `nginx.conf` file looks like this:
 

@@ -6,19 +6,21 @@ Let's set our MariaDB service. This is a intial folder and files structure:
 
 ![mariadb setup](media/docker_mariadb/step_0.png)
 
+> Note: MariaDB vs. MySQL - This projects uses MariaDB as required by subject, but you will see mysql in commands, paths, and configs (like mysqld, /var/lib/mysql, and mysql_install_db). This is normal, MariaDB is a drop-in replacement for MySQL, designed to work with the same commands and file structures. For all practical purposes in this guide, "MySQL" and "MariaDB" refer to the same database system.
+
 What we need to do to set this container up is basically to install MariaDB package and client, create both MariaDB and MySQL configuration files and write a script that creates a database that will be used later by WordPress.
 
 Here is a brief step-by-step for this Dockerfile, listed as ``KEYWORD`` : Idea:
 
-- ``FROM`` : Get OS system image (as always).
+- ``FROM`` : Get OS system image (as usual)
 - ``ARG`` : Declare -parse- env variables that will be used later during the build
 - ``RUN`` : Install mariadb and mariadb client.
 - ``RUN`` : Create MySQL socket directory
 - ``RUN`` : Configure MariaDB
-- ``RUN`` : Init MariaDB
+- ``RUN`` : Init MariaDB database
 - ``EXPOSE`` : Port to be used
-- ``COPY`` : Copy mySQL script
-- ``RUN`` : Execute the script to create the database
+- ``COPY`` : Copy mySQL database setup script
+- ``RUN`` : Execute the just mentioned script
 - ``CMD`` : Start mySQL server
 
 Now, let's see a version of the full Dockerfile with comments to explain a bit deeper what is going on in each step:
@@ -100,7 +102,7 @@ After Dockerfile is built, the image will have the directory `/var/lib/mysql`, w
 
 ## Step 2. Script for creating a database
 
-Now, our Dockerfile need a script that will copy when building at will be executed when the container starts. This script will create a mySQL database, let's get into it:
+Now, our Dockerfile need a script that will be copied while building at then will be executed when the container starts. This script will create a mySQL database, let's get into it:
 
 `vim requirements/mariadb/conf/db.sh`
 
@@ -152,11 +154,15 @@ EOF
 	# Run the SQL script to set up the database
 
 	/usr/bin/mysqld --user=mysql --bootstrap < /tmp/create_db.sql
-	rm -f /tmp/create_db.sql
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to create database and user."
+    exit 1
+	fi
+  rm -f /tmp/create_db.sql
 fi
 ```
 
-The first **if-fi** block of the script sets up a MariaDB only if it’s missing. It checks if the system database exists; if not, it initializes the data directory and system tables to ensure MariaDB can function. This prevents overwriting existing data, which is crucial when using persistent storage like Docker volumes, but we will get into that later on, do not worry.
+The first *if-fi* block of the script sets up a MariaDB only if it’s missing. It checks if the system database exists; if not, it initializes the data directory and system tables to ensure MariaDB can function. This prevents overwriting existing data, which is crucial when using persistent storage like Docker volumes, but we will get into that later on, do not worry.
 
 Secon block to the same regarding WordPress, if its database is not found, the script creates it along with a user. It removes anonymous users, deletes the test database, restricts root access, and grants privileges to the new user. Finally, it applies changes and deletes the setup file, ensuring a secure and ready-to-use database.
 
@@ -193,24 +199,19 @@ We continue to edit our docker-compose.yml, taking into account what we said abo
         DB_PASS: ${DB_PASS}
     container_name: mariadb
 ```
-As we can see, our env variables are passed to ARG through the args section of the service `build:` . 
+As we can see, our env variables are passed to ARG through the args section of the service `build:`
 
-Let's not forget to mount the partition in the same way so that the database status is not reset after each container restart.:
+Let's not forget to mount the partition in the same way so that the database status is not reset after each container restart (do not worry about understanding volumes right now, we will get to that later)
 
 ```
     volumes:
       - db-volume:/var/lib/mysql
 ```
 
-Mariadb is running on port 3306, so this port must be open.
-```
-    ports:
-      - "3306:3306"
-```
-
 Also, at this point where we are starting to use volumes, we have to "declare" them not only within the service using the volumen itself, but also in the general scope of the docker-compose.yml -otherwise, the build will fail-. This has to be done bellow the services section of the file, and for now just declaring them will be enough (we will add some options later on)
 
 ```
+#This goes at the very end of our current docker-compose.yml
 volumes:
   db-volume:
 ```
@@ -245,10 +246,6 @@ services:
         DB_PASS: ${DB_PASS}
         DB_ROOT: ${DB_ROOT}
     container_name: mariadb
-    ports:
-      - "3306:3306"
-    # networks:
-    #   - inception
     volumes:
       - db-volume:/var/lib/mysql
     restart: on-failure
@@ -259,7 +256,14 @@ volumes:
 
 ## Step 5. Checking the database status
 
-In order to check if everything has worked out, we need to run the following command after starting the container:
+Let's build and start the container:
+
+```
+# Being srcs/ directory
+docker-compose up -d --build mariadb
+```
+
+In order to check if everything has worked out, run this command after starting the container:
 
 ``docker exec -it mariadb mysql -u root``
 
@@ -269,7 +273,7 @@ This way we will find ourselves in the text environment of the database.:
 
 Here we enter the command
 
-``show databases;``
+``SHOW DATABASES;``
 
 In our case, the output should be as follows:
 
