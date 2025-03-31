@@ -49,7 +49,7 @@ This project is a system administration exercise focused on Docker containerizat
 - Domain name must be login.42.fr (replace "login" with your actual login)
 
 ### Directory Structure
-´´´
+```text
 .
 ├── Makefile
 ├── secrets/
@@ -75,8 +75,7 @@ This project is a system administration exercise focused on Docker containerizat
             ├── .dockerignore
             ├── conf/
             └── tools/
-´´´
-
+```
 ### Setup Instructions
 
 1. Prerequisites:
